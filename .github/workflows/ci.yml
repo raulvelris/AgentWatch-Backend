@@ -1,0 +1,48 @@
+name: CI
+
+# RF08 — Todo PR dispara: lint -> tests -> analisis estatico (Semgrep) -> build.
+# El merge queda bloqueado si la cobertura del Modulo 2 es < 70% o si hay
+# hallazgos Critical/High. (Configurar como required status check en la rama.)
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff semgrep
+
+      - name: Lint (ruff)
+        run: ruff check app tests
+
+      - name: Static analysis (Semgrep)
+        # RF08: bloquea ante hallazgos Critical/High.
+        run: semgrep --config auto --severity ERROR --error app
+
+      - name: Tests + coverage gate (>= 70% en el Modulo 2)
+        run: |
+          pytest tests/ \
+            --cov=app.routers.deployments \
+            --cov=app.routers.versions \
+            --cov=app.routers.environments \
+            --cov=app.schemas.version \
+            --cov=app.schemas.environment \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+
+      - name: Build image
+        run: docker build -t agentwatch-backend:${{ github.sha }} .
