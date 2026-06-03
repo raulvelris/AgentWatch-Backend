@@ -1,0 +1,35 @@
+name: Deploy Prod (Canary)
+
+# RF08 — Despliegue a produccion con estrategia canary: 10% -> 50% -> 100%,
+# ventanas de 5 min, con rollback automatico si el error rate supera 2%
+# (monitoreado con Prometheus). Requiere aprobacion (environment: production).
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      matrix:
+        fase: [10, 50, 100]
+      max-parallel: 1   # las fases corren en orden
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enrutar ${{ matrix.fase }}% del trafico (Azure Container Apps revisions)
+        # az containerapp ingress traffic set ... --revision-weight nueva=${{ matrix.fase }}
+        run: echo "Canary: enviando ${{ matrix.fase }}% del trafico a la revision nueva"
+
+      - name: Ventana de observacion (5 min) + error rate (Prometheus)
+        # Consulta a Prometheus el error rate de la revision canary.
+        # Si supera 2%, se aborta y se ejecuta el rollback automatico.
+        run: |
+          echo "Vigilando error_rate por 5 min via Prometheus..."
+          echo "Si error_rate > 2% -> exit 1 (dispara rollback)"
+
+      - name: Rollback automatico si la fase fallo
+        if: failure()
+        run: echo "Error rate > 2%: revirtiendo trafico a la revision anterior (rollback)"

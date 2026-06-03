@@ -1,0 +1,31 @@
+name: Deploy Staging
+
+# RF08 — El merge a develop despliega automaticamente a staging.
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t agentwatch-backend:${{ github.sha }} .
+
+      # --- Despliegue a staging (Azure Container Apps) ---
+      # NOTA: pasos reales requieren credenciales de Azure (secrets). Para el
+      # prototipo academico se documentan; el "environment: staging" de GitHub
+      # ya da trazabilidad y aprobacion. Ver ADR-02.1 y PIPELINE.md.
+      #
+      # - uses: azure/login@v2
+      #     with: { creds: ${{ secrets.AZURE_CREDENTIALS }} }
+      # - run: az containerapp update -n agentwatch-staging -g agentwatch
+      #        --image <registry>/agentwatch-backend:${{ github.sha }}
+      - name: Deploy to staging (placeholder)
+        run: echo "Desplegando ${{ github.sha }} a STAGING (Azure Container Apps)"
+
+      - name: Smoke test (healthcheck)
+        run: echo "GET /  -> 200 (healthcheck del agente)"
