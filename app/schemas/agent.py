@@ -12,3 +12,5 @@ class AgentConfig(BaseModel):
     regla: str
     supervision: str
     estado: str = "DRAFT"
+    tenant_id: str
+    owner: str
