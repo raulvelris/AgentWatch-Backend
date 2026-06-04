@@ -54,10 +54,3 @@ def list_agents():
         "agents": agents_db
     }
 
-@router.patch("/{agent_id}/state")
-def update_agent_state(agent_id: str, update_data: StateUpdate):
-    for agent in agents_db:
-        if str(agent.id) == agent_id:
-            agent.estado = update_data.estado
-            return {"message": "Estado actualizado", "agent": agent}
-    raise HTTPException(status_code=404, detail="Agente no encontrado")
