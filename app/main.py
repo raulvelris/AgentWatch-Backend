@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.config import settings
 from app.routers.agents import router as agents_router
 from app.routers.templates import router as templates_router
 from app.routers.security import router as security_router
@@ -19,17 +20,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:8081",
-        "http://127.0.0.1:8081",
-        # IP local de la PC para acceso desde celular en la misma red WiFi
-        # en cmd: ipconfig → Adaptador de LAN inalámbrica Wi-Fi:
-        # Dirección IPv4. . . . . . . . . . . . . . : (la ip a usar:8081, 5173)
-        "http://192.168.1.49:8081", # (reemplazar con tu ip)
-        "http://192.168.1.49:5173", # (reemplazar con tu ip)
-    ],
+    # Orígenes desde settings (CORS_ORIGINS, separados por coma). Para acceso
+    # desde celular en la misma red WiFi, agregar la IP local en .env
+    # (ver .env.example); los defaults cubren localhost:5173/8081 y 127.0.0.1.
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

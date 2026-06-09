@@ -4,6 +4,10 @@ __pycache__/
 .env
 .pytest_cache/
 .coverage
+.ruff_cache/
+
+# Base de datos local del Módulo 2 (se regenera sola al arrancar)
+*.db
 
 # Artefactos locales de IDE / herramientas
 .idea/
