@@ -5,3 +5,4 @@ pydantic
 pytest
 pytest-cov
 httpx
+requests
