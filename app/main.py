@@ -12,6 +12,13 @@ from app.routers.autenticacion import router as auth_router
 from app.routers.tenants import router as tenants_router
 from app.routers.governance import router as governance_router
 from app.routers.audit import router as audit_router
+# Módulo 5 (Trazabilidad, RF17-RF20) — API core unificada (wiki 6.2/6.3):
+# los routers de rf17_rf20_gabriel se montan aquí; su main.py standalone
+# queda deprecado. Sin NEO4J_URI responden 503 ("Neo4j no configurado").
+from rf17_rf20_gabriel.routes.traces import router as traces_router
+from rf17_rf20_gabriel.routes.audit import router as audit_trail_router
+from rf17_rf20_gabriel.routes.metrics import router as metrics_router
+from rf17_rf20_gabriel.routes.replay import router as replay_router
 
 app = FastAPI(
     title="AgentWatch API",
@@ -41,6 +48,12 @@ app.include_router(auth_router)
 app.include_router(tenants_router)
 app.include_router(governance_router)
 app.include_router(audit_router)
+# Módulo 5 (Trazabilidad / Neo4j) — sus routers traen prefijos cortos
+# (/traces, /audit, /metrics, /executions), igual que en su main standalone.
+app.include_router(traces_router, prefix="/api/v1")
+app.include_router(audit_trail_router, prefix="/api/v1")
+app.include_router(metrics_router, prefix="/api/v1")
+app.include_router(replay_router, prefix="/api/v1")
 
 @app.get("/")
 def root():
