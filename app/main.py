@@ -7,6 +7,10 @@ from app.routers.security import router as security_router
 from app.routers.deployments import router as deployments_router
 from app.routers.versions import router as versions_router
 from app.routers.environments import router as environments_router
+from app.routers.autenticacion import router as auth_router
+from app.routers.tenants import router as tenants_router
+from app.routers.governance import router as governance_router
+from app.routers.audit import router as audit_router
 
 app = FastAPI(
     title="AgentWatch API",
@@ -38,10 +42,15 @@ app.include_router(security_router)
 app.include_router(deployments_router)
 app.include_router(versions_router)
 app.include_router(environments_router)
-
+# Módulo 4 (Despliegue / CI-CD)
+app.include_router(auth_router)
+app.include_router(tenants_router)
+app.include_router(governance_router)
+app.include_router(audit_router)
 
 @app.get("/")
 def root():
     return {
         "message": "AgentWatch Backend funcionando"
     }
+
