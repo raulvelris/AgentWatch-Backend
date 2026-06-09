@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes.traces import router as traces_router
-from routes.audit import router as audit_router
-from routes.metrics import router as metrics_router
-from routes.replay import router as replay_router
+from .routes.traces import router as traces_router
+from .routes.audit import router as audit_router
+from .routes.metrics import router as metrics_router
+from .routes.replay import router as replay_router
 
 app = FastAPI(
     title="AgentWatch Backend",

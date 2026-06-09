@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 
-from services.audit_chain_service import AuditChainService
+from ..services.audit_chain_service import AuditChainService
 
 router = APIRouter(
     prefix="/audit",
