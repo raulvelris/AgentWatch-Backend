@@ -6,3 +6,5 @@ pytest
 pytest-cov
 httpx
 requests
+python-jose[cryptography]
+passlib[bcrypt]
