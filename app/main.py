@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.database import init_db
 from app.routers.agents import router as agents_router
 from app.routers.templates import router as templates_router
 from app.routers.security import router as security_router
@@ -19,6 +20,12 @@ from rf17_rf20_gabriel.routes.traces import router as traces_router
 from rf17_rf20_gabriel.routes.audit import router as audit_trail_router
 from rf17_rf20_gabriel.routes.metrics import router as metrics_router
 from rf17_rf20_gabriel.routes.replay import router as replay_router
+
+# Seed idempotente del Módulo 2: crea schema y triggers de inmutabilidad
+# (RF07) si no existen. A nivel de import (y no en lifespan) para que el
+# TestClient de los tests existentes —que no usa context manager— también
+# tenga la BD lista.
+init_db()
 
 app = FastAPI(
     title="AgentWatch API",
