@@ -12,5 +12,8 @@ class AgentConfig(BaseModel):
     regla: str
     supervision: str
     estado: str = "DRAFT"
-    tenant_id: str
-    owner: str
+    # Defaults provisionales: los datos demo de agents.py y el front actual
+    # (WizardAgente) todavía no envían estos campos; sin default la app no
+    # importa (ValidationError al construir agents_db) y POST /agents/ da 422.
+    tenant_id: str = "tenant_a"
+    owner: str = "admin_a"
