@@ -1,3 +1,12 @@
+"""DEPRECADO: este arranque standalone ya no se usa.
+
+Los 4 routers (RF17-RF20) ahora se montan en la API core unificada:
+    uvicorn app.main:app
+Este archivo se conserva como referencia del montaje original, pero
+levantarlo por separado duplica el backend en otro puerto y los
+frontends ya no lo consumen.
+"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
