@@ -1,10 +1,10 @@
 name: Demo Pipeline (CI)
 
 # Workflow simple para la demo del video: corre lint + tests (rápido y estable).
-# Se dispara en CADA push (cualquier rama) y también con el botón manual.
+# SOLO manual (workflow_dispatch): era para una demo grabada; con `on: push`
+# sin filtro corría redundante en cada push de cualquier rama (H11).
 # El pipeline completo está en ci.yml (lint + Semgrep + cobertura + build).
 on:
-  push:
   workflow_dispatch:
 
 permissions:

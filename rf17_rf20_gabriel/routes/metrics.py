@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from services.business_metrics_service import BusinessMetricsService
+from ..services.business_metrics_service import BusinessMetricsService
 
 router = APIRouter(
     prefix="/metrics",

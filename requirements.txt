@@ -1,10 +1,18 @@
 fastapi
 uvicorn[standard]
 pydantic
+pydantic-settings
+# Persistencia (Módulo 2: versiones/promociones/despliegues en SQLite)
+sqlalchemy
+# Módulo 5 (RF17-RF20): driver de Neo4j + carga de .env en sus services
+neo4j
+python-dotenv
+# Módulo 4 (auth JWT + hashing de passwords)
+python-jose[cryptography]
+passlib[bcrypt]
+# PR #4 (Rodrigo) — sin uso en el repo todavía; justificación pendiente
+requests
 # Tests (Módulo 2)
 pytest
 pytest-cov
 httpx
-requests
-python-jose[cryptography]
-passlib[bcrypt]

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from services.execution_replay_service import ExecutionReplayService
+from ..services.execution_replay_service import ExecutionReplayService
 
 router = APIRouter(
     prefix="/executions",

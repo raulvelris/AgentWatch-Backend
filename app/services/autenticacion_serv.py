@@ -2,7 +2,6 @@ from jose import jwt
 from passlib.context import CryptContext
 from fastapi import HTTPException
 from datetime import datetime, timedelta
-from jose import jwt
 
 CLAVE_DEBIL = "1234"
 CLAVE_SECRETA = "agente123"

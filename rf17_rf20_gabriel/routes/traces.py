@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from services.trace_graph_service import TraceGraphService
+from ..services.trace_graph_service import TraceGraphService
 
 router = APIRouter(
     prefix="/traces",
