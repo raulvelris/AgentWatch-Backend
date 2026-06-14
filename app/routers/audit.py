@@ -1,8 +1,12 @@
 from fastapi import APIRouter
 from app.schemas.audit import AuditLog
 
+# Prefijo movido de /api/v1/audit a /api/v1/security/logs: /api/v1/audit
+# pertenece al audit trail del Módulo 5 (RF18, hash chain) y ambos routers
+# colisionaban en GET / y POST / (FastAPI atiende el primero registrado y
+# el otro queda muerto en silencio). La lógica no cambia.
 router = APIRouter(
-    prefix="/api/v1/audit",
+    prefix="/api/v1/security/logs",
     tags=["Audit"]
 )
 

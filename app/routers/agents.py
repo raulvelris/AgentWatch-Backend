@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.schemas.agent import AgentConfig
@@ -9,8 +11,6 @@ router = APIRouter(
     prefix="/api/v1/agents",
     tags=["Agents"]
 )
-
-import uuid
 
 agents_db = [
     AgentConfig(

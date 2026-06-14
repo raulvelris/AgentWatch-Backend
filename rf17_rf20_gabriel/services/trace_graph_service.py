@@ -1,5 +1,6 @@
 import os
 import time
+from fastapi import HTTPException
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 
@@ -9,14 +10,29 @@ load_dotenv()
 class TraceGraphService:
 
     def __init__(self):
-        self.driver = GraphDatabase.driver(
-            os.getenv("NEO4J_URI"),
-            auth=(
-                os.getenv("NEO4J_USER"),
-                os.getenv("NEO4J_PASSWORD")
-            )
-        )
+        # Driver perezoso: se crea en el primer uso, no al importar. Sin
+        # NEO4J_URI el proceso unificado (app.main) arranca igual y estos
+        # endpoints responden 503 en lugar de tumbar el import.
+        self._driver = None
         self.database = os.getenv("NEO4J_DATABASE", "neo4j")
+
+    @property
+    def driver(self):
+        if self._driver is None:
+            uri = os.getenv("NEO4J_URI")
+            if not uri:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Neo4j no configurado: define NEO4J_URI (ver .env.example)",
+                )
+            self._driver = GraphDatabase.driver(
+                uri,
+                auth=(
+                    os.getenv("NEO4J_USER"),
+                    os.getenv("NEO4J_PASSWORD")
+                )
+            )
+        return self._driver
 
     def create_indexes(self):
         queries = [

@@ -24,8 +24,10 @@ jobs:
       #     with: { creds: ${{ secrets.AZURE_CREDENTIALS }} }
       # - run: az containerapp update -n agentwatch-staging -g agentwatch
       #        --image <registry>/agentwatch-backend:${{ github.sha }}
-      - name: Deploy to staging (placeholder)
+      - name: Deploy to staging (SIMULADO)
         run: echo "Desplegando ${{ github.sha }} a STAGING (Azure Container Apps)"
 
-      - name: Smoke test (healthcheck)
+      # Comando real del smoke test (cuando exista la URL de staging):
+      # - run: curl --fail https://agentwatch-staging.<region>.azurecontainerapps.io/
+      - name: Smoke test healthcheck (SIMULADO)
         run: echo "GET /  -> 200 (healthcheck del agente)"
