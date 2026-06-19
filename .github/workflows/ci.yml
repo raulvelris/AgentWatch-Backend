@@ -43,6 +43,7 @@ jobs:
             --cov=app.routers.versions \
             --cov=app.routers.environments \
             --cov=app.routers.notifications \
+            --cov=app.routers.env_vars \
             --cov=app.schemas.version \
             --cov=app.schemas.environment \
             --cov=app.core.config \
@@ -51,6 +52,7 @@ jobs:
             --cov=app.services.deps \
             --cov=app.services.notificaciones \
             --cov=app.services.reloj \
+            --cov=app.services.cifrado_fernet \
             --cov-report=term-missing \
             --cov-fail-under=70
 
