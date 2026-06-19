@@ -9,6 +9,7 @@ from app.routers.security import router as security_router
 from app.routers.deployments import router as deployments_router
 from app.routers.versions import router as versions_router
 from app.routers.environments import router as environments_router
+from app.routers.env_vars import router as env_vars_router
 from app.routers.notifications import router as notifications_router
 from app.routers.autenticacion import router as auth_router
 from app.routers.tenants import router as tenants_router
@@ -51,6 +52,7 @@ app.include_router(security_router)
 app.include_router(deployments_router)
 app.include_router(versions_router)
 app.include_router(environments_router)
+app.include_router(env_vars_router)
 app.include_router(notifications_router)
 # Módulo 4 (Despliegue / CI-CD)
 app.include_router(auth_router)

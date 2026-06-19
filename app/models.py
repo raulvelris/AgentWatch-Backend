@@ -5,7 +5,7 @@ despliegue y outbox de notificaciones. Los agents/templates de otros
 módulos siguen en memoria (no son de este módulo).
 """
 
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -74,3 +74,23 @@ class NotificacionDB(Base):
     mensaje: Mapped[str] = mapped_column(Text)
     agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     fecha: Mapped[str] = mapped_column(String)  # ISO-8601 UTC
+
+
+class AgentEnvVarDB(Base):
+    """RF06/ADR-02.6: variables de entorno por ambiente, cifradas con Fernet
+    como stand-in local de Azure Key Vault. La columna `valor_cifrado` solo
+    almacena ciphertext (token Fernet `gAAA...`) — nunca texto plano (EC-02.5).
+    La unicidad (agent_id, ambiente, nombre) habilita el upsert del PUT."""
+
+    __tablename__ = "agent_env_vars"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    agent_id: Mapped[str] = mapped_column(String, index=True)
+    ambiente: Mapped[str] = mapped_column(String)  # "dev" | "staging" | "prod"
+    nombre: Mapped[str] = mapped_column(String)  # p. ej. "OPENAI_KEY"
+    valor_cifrado: Mapped[str] = mapped_column(Text)  # token Fernet (base64)
+    fecha: Mapped[str] = mapped_column(String)  # ISO-8601 UTC
+
+    __table_args__ = (
+        UniqueConstraint("agent_id", "ambiente", "nombre", name="uq_agent_env_var"),
+    )

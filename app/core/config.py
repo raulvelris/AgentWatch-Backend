@@ -24,6 +24,14 @@ class Settings(BaseSettings):
         "http://localhost:8081,http://127.0.0.1:8081"
     )
 
+    # RF06/ADR-02.6: clave Fernet para cifrar las variables de entorno por
+    # ambiente. Generar con:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    # Sin esta variable, cifrado_fernet genera una clave efímera en memoria
+    # (solo desarrollo; los valores no sobreviven reinicios). En producción,
+    # SIEMPRE definirla en .env — es la "clave fuera del almacén" de EC-02.5.
+    ENVVARS_KEY: str | None = None
+
     # --- Módulo 5 (Trazabilidad, Gabriel) — opcionales ---
     # Sin NEO4J_URI los endpoints /traces, /audit, /metrics y /executions
     # responden 503 ("Neo4j no configurado"); el resto de la API funciona.

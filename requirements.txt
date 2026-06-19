@@ -10,6 +10,10 @@ python-dotenv
 # Módulo 4 (auth JWT + hashing de passwords)
 python-jose[cryptography]
 passlib[bcrypt]
+# Módulo 2 (RF06/ADR-02.6): cifrado Fernet de variables por ambiente. Ya viene
+# como dep transitiva de python-jose[cryptography]; se declara explícita porque
+# app/services/cifrado_fernet.py la importa de forma directa.
+cryptography
 # PR #4 (Rodrigo) — sin uso en el repo todavía; justificación pendiente
 requests
 # Tests (Módulo 2)
