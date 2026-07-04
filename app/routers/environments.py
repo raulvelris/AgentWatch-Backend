@@ -7,6 +7,7 @@ from app.models import PromotionDB
 from app.schemas.environment import PromoteRequest
 from app.services import reloj
 from app.services.deps import get_current_claims
+from app.services.governance_service import evaluar_gate_promocion
 from app.services.notificaciones import encolar_notificacion
 
 # Módulo 2 (Despliegue / CI-CD) — RF06: ambientes dev/staging/prod + promotion.
@@ -98,6 +99,20 @@ def promote(
             status_code=403,
             detail="La promoción a prod requiere aprobación de un usuario con rol ADMIN",
         )
+
+    # Release gate de calidad (MLOps, ver docs/plan-mlops-release-gate.md):
+    # además del rol, la promoción a prod debe superar las políticas
+    # `release_gate` activas del tenant (tasa de éxito de los últimos N
+    # despliegues). Bloqueo duro: aplica también a un ADMIN. 409 y no 403:
+    # la identidad es válida; lo que falla es el estado de calidad del
+    # agente. Sin políticas activas, el flujo es idéntico al anterior.
+    # tenant: claim del JWT si hay token; sin token, mismo default que
+    # AgentConfig.tenant_id (las tablas del Módulo 2 no llevan tenant_id).
+    if req.ambiente_destino == "prod":
+        tenant_id = claims.get("tenant", "tenant_a") if claims else "tenant_a"
+        aprobado, motivo = evaluar_gate_promocion(tenant_id, agent_id)
+        if not aprobado:
+            raise HTTPException(status_code=409, detail=motivo)
 
     registro = PromotionDB(
         agent_id=agent_id,

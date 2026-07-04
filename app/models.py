@@ -1,11 +1,12 @@
 """Modelos SQLAlchemy del Módulo 2 (Despliegue / CI-CD).
 
-Solo tablas del Módulo 2 (RF05-RF07): versiones, promociones, registros de
-despliegue y outbox de notificaciones. Los agents/templates de otros
-módulos siguen en memoria (no son de este módulo).
+Tablas del Módulo 2 (RF05-RF07): versiones, promociones, registros de
+despliegue y outbox de notificaciones; más `PolicyDB` (Gobernanza), que el
+release gate de calidad consulta al promover a prod. Los agents/templates
+de otros módulos siguen en memoria (no son de este módulo).
 """
 
-from sqlalchemy import Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -74,6 +75,36 @@ class NotificacionDB(Base):
     mensaje: Mapped[str] = mapped_column(Text)
     agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     fecha: Mapped[str] = mapped_column(String)  # ISO-8601 UTC
+
+
+class PolicyDB(Base):
+    """Políticas de gobernanza (release gate de calidad sobre promote a prod).
+
+    A diferencia de VersionDB (RF07), esta tabla es MUTABLE por diseño: una
+    política es configuración viva (se activa o desactiva), no un registro
+    histórico de auditoría — por eso NO lleva triggers de inmutabilidad.
+
+    `tipo="release_gate"` + `metrica`/`umbral`/`ventana` definen el gate que
+    evalúa governance_service.evaluar_gate_promocion() antes de promover a
+    prod. `tipo="informativa"` (default) replica el comportamiento previo:
+    la política existe pero no bloquea nada.
+    """
+
+    __tablename__ = "policies"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+    nombre: Mapped[str] = mapped_column(String)
+    descripcion: Mapped[str] = mapped_column(Text, default="")
+    severidad: Mapped[str] = mapped_column(String, default="media")
+    activa: Mapped[bool] = mapped_column(Boolean, default=True)
+    # "informativa" (default, no bloquea) | "release_gate" (bloquea promote a prod)
+    tipo: Mapped[str] = mapped_column(String, default="informativa")
+    # Para release_gate: métrica soportada "tasa_exito_despliegues",
+    # umbral en [0, 1] y ventana = últimos N despliegues considerados.
+    metrica: Mapped[str | None] = mapped_column(String, nullable=True)
+    umbral: Mapped[float | None] = mapped_column(Float, nullable=True)
+    ventana: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class AgentEnvVarDB(Base):
