@@ -12,3 +12,12 @@ __pycache__/
 # Artefactos locales de IDE / herramientas
 .idea/
 .vscode/
+
+# Prompts de trabajo para herramientas de generacion de codigo: no son
+# documentacion del proyecto y viven fuera del repo (raiz Agentwatch/).
+# Red de seguridad para no volver a trackearlos por accidente.
+docs/prompt-*.md
+
+# Config personal de la herramienta de generacion de codigo (por dev, no se
+# comparte). Red de seguridad para que nadie la comitee sin querer.
+.claude/settings.local.json
