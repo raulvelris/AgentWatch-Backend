@@ -214,3 +214,11 @@ ya la consuma.
   vale la pena decir en voz alta que se pensó así a propósito.
 - 409 en vez de 403 es una elección de semántica HTTP: permiso vs. estado.
   Vale la pena explicar por qué se eligió así.
+
+---
+
+> **Nota de mantenimiento (limpieza de repo):** los prompts de trabajo usados para
+> implementar este release gate (`docs/prompt-*.md`) se removieron del repositorio.
+> Eran instrucciones para una herramienta de generación de código, no documentación
+> del proyecto, por lo que ahora viven fuera de cualquier repo, en la carpeta raíz
+> `Agentwatch/` junto con `MEMORIA-AGENTWATCH.md`.
