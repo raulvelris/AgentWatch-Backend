@@ -191,8 +191,12 @@ ya la consuma.
    parámetro que YA existe (`POST /api/v1/agents/{id}/deploy?fallo=healthcheck`),
    luego `POST /api/v1/agents/{id}/promote` a `prod` como ADMIN. Hoy pasa
    igual, sin filtro — ese es el "antes".
-3. **Mostrar el cambio**: `POST /api/v1/governance/policies` con una política
-   `tipo="release_gate"`, `metrica="tasa_exito_despliegues"`, `umbral=0.8`.
+3. **Mostrar el cambio**: crear la política de gate. Este POST ahora exige rol
+   ADMIN. Primero sacar un token con `GET /api/v1/auth/login?usuario=admin_a` y
+   mandarlo en el header `Authorization: Bearer <token>`. Con ese token,
+   `POST /api/v1/governance/policies` con una política `tipo="release_gate"`,
+   `metrica="tasa_exito_despliegues"`, `umbral=0.8`. Sin token da 401 y con un
+   token que no sea ADMIN da 403.
 4. Repetir el mismo escenario de despliegues fallidos → ahora la promoción
    da 409, con el motivo explicado en la respuesta.
 5. Mostrar que se puede desbloquear: correr despliegues exitosos, la tasa

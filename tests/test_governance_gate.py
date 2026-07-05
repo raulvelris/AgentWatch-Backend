@@ -46,6 +46,13 @@ def sin_sleep(monkeypatch):
     monkeypatch.setattr(deployments.asyncio, "sleep", _sleep_instantaneo)
 
 
+def _headers_admin(usuario: str = "admin_a") -> dict:
+    """Token ADMIN vía el login stub del Módulo 4, en el header Authorization.
+    Crear políticas ahora exige rol ADMIN (require_admin en governance.py)."""
+    token = client.get("/api/v1/auth/login", params={"usuario": usuario}).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _crear_politica(policy_id: str, tenant_id: str = "tenant_a", **extra) -> dict:
     base = {
         "id": policy_id,
@@ -59,7 +66,9 @@ def _crear_politica(policy_id: str, tenant_id: str = "tenant_a", **extra) -> dic
         "ventana": 5,
     }
     base.update(extra)
-    respuesta = client.post("/api/v1/governance/policies", json=base)
+    respuesta = client.post(
+        "/api/v1/governance/policies", json=base, headers=_headers_admin()
+    )
     assert respuesta.status_code == 200, respuesta.text
     return respuesta.json()["policy"]
 
@@ -217,6 +226,7 @@ def test_release_gate_sin_umbral_da_422():
             "tipo": "release_gate",
             "metrica": "tasa_exito_despliegues",
         },
+        headers=_headers_admin(),
     )
     assert r.status_code == 422
     assert "umbral" in r.json()["detail"]
@@ -237,6 +247,7 @@ def test_tipo_desconocido_da_422():
             "metrica": "tasa_exito_despliegues",
             "umbral": 0.8,
         },
+        headers=_headers_admin(),
     )
     assert r.status_code == 422
 
@@ -252,6 +263,7 @@ def test_politica_con_id_duplicado_da_409():
             "descripcion": "",
             "severidad": "media",
         },
+        headers=_headers_admin(),
     )
     assert r.status_code == 409
 
@@ -269,3 +281,32 @@ def test_politicas_persisten_y_se_listan_por_tenant():
     del_tenant = client.get("/api/v1/governance/tenant/tenant-listado-a").json()
     assert del_tenant["tenant"] == "tenant-listado-a"
     assert [p["id"] for p in del_tenant["policies"]] == ["pol-listado-a"]
+
+
+# Cuerpo válido a propósito: así el único motivo de fallo es la auth (401/403),
+# no una validación de schema (422). Crear una política puede frenar prod, por
+# eso el POST exige rol ADMIN.
+_POLITICA_VALIDA = {
+    "id": "pol-auth",
+    "tenant_id": "tenant_a",
+    "nombre": "gate auth",
+    "descripcion": "",
+    "severidad": "alta",
+    "tipo": "release_gate",
+    "metrica": "tasa_exito_despliegues",
+    "umbral": 0.8,
+}
+
+
+def test_crear_politica_sin_token_da_401():
+    r = client.post("/api/v1/governance/policies", json=_POLITICA_VALIDA)
+    assert r.status_code == 401
+
+
+def test_crear_politica_con_rol_no_admin_da_403():
+    r = client.post(
+        "/api/v1/governance/policies",
+        json=_POLITICA_VALIDA,
+        headers=_headers_admin("viewer_a"),
+    )
+    assert r.status_code == 403

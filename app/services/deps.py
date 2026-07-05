@@ -45,3 +45,23 @@ def get_current_role(
 ) -> str | None:
     """Rol del usuario autenticado ("ADMIN" | "VIEWER") o None sin token."""
     return claims.get("rol") if claims else None
+
+
+def require_admin(
+    claims: dict | None = Depends(get_current_claims),
+) -> dict:
+    """Exige un token válido con rol ADMIN. get_current_claims ya lanza 401
+    cuando el header o el token son inválidos; aquí 401 si no llegó ningún
+    token, y 403 si el token es válido pero el rol no es ADMIN.
+
+    A diferencia de environments.promote(), no hay fallback por body: el
+    sentido de esta dependencia es cerrar el endpoint, así que sin token no
+    se pasa."""
+    if claims is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Se requiere autenticación: token Bearer con rol ADMIN",
+        )
+    if str(claims.get("rol", "")).upper() != "ADMIN":
+        raise HTTPException(status_code=403, detail="Se requiere rol ADMIN")
+    return claims

@@ -8,6 +8,12 @@ solo devuelve valores enmascarados (EC-02.5). El cifrado/enmascarado vive en
 Comparte el prefijo `/api/v1/agents` con environments.py; las rutas no se
 solapan (`/{agent_id}/environments/{env}/vars`). Reutiliza la lista AMBIENTES
 de environments.py para no duplicar la fuente de verdad de ambientes válidos.
+
+Limitación conocida (decisión de alcance, no descuido): el PUT y el DELETE no
+exigen autenticación todavía. El front los llama sin token y el JWT del header
+llega con RF13 (Módulo 4). Cerrarlos con ADMIN, como se hizo con el POST de
+governance, queda pendiente para cuando el front envíe el token. Ver
+`app.services.deps.require_admin` para la dependencia ya lista.
 """
 
 from fastapi import APIRouter, Body, HTTPException
