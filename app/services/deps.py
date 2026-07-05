@@ -65,3 +65,20 @@ def require_admin(
     if str(claims.get("rol", "")).upper() != "ADMIN":
         raise HTTPException(status_code=403, detail="Se requiere rol ADMIN")
     return claims
+
+
+def require_authenticated(
+    claims: dict | None = Depends(get_current_claims),
+) -> dict:
+    """Exige un token válido, de cualquier rol. 401 si no llega token (o si es
+    inválido, que get_current_claims ya rechaza). Devuelve los claims.
+
+    La usa promote(): promover no es solo de ADMIN (un usuario común pide una
+    promoción que queda 'pendiente'); lo que exige ADMIN es el destino prod, y
+    eso lo chequea el propio promote sobre el rol de los claims."""
+    if claims is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Se requiere autenticación: token Bearer",
+        )
+    return claims

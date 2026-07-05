@@ -2,11 +2,13 @@ import hashlib
 import json
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_session
 from app.models import VersionDB
 from app.schemas.version import Version
+from app.services.deps import require_admin
 
 # Módulo 2 (Despliegue / CI-CD) — RF07: versionado inmutable con rollback.
 router = APIRouter(
@@ -51,31 +53,46 @@ def registrar_version(
     hash_sha256 no cambian; lo refuerzan los triggers de la BD—; solo se actualiza
     el puntero de ciclo de vida `estado` (la anterior 'activa'/'rollback' pasa a
     'inactiva') para que haya una sola versión vigente."""
-    with get_session() as session:
-        historial = (
-            session.query(VersionDB)
-            .filter(VersionDB.agent_id == agent_id)
-            .order_by(VersionDB.numero)
-            .all()
-        )
-        for v in historial:
-            if v.estado in ("activa", "rollback"):
-                v.estado = "inactiva"
-        numero = len(historial) + 1
-        ts = datetime.now(timezone.utc).isoformat()
-        version = VersionDB(
-            id=f"{agent_id}-v{numero}",
-            agent_id=agent_id,
-            numero=numero,
-            fecha=ts,
-            autor=autor,
-            hash_sha256=_hash_config(agent_id, numero, ts),
-            estado=estado,
-            descripcion=descripcion,
-        )
-        session.add(version)
-        session.commit()
-        return _a_schema(version)
+    # Reintento acotado ante colisión de PK: dos deploys concurrentes del mismo
+    # agente pueden calcular el mismo `numero` (len+1) y chocar en el id
+    # `{agent_id}-v{numero}` al commitear. En vez de un 500, se recomputa con el
+    # historial fresco y se reintenta (mismo patrón que governance.crear_politica).
+    # La race es rara (threadpool de FastAPI); 5 intentos sobran.
+    for _ in range(5):
+        with get_session() as session:
+            historial = (
+                session.query(VersionDB)
+                .filter(VersionDB.agent_id == agent_id)
+                .order_by(VersionDB.numero)
+                .all()
+            )
+            for v in historial:
+                if v.estado in ("activa", "rollback"):
+                    v.estado = "inactiva"
+            numero = len(historial) + 1
+            ts = datetime.now(timezone.utc).isoformat()
+            version = VersionDB(
+                id=f"{agent_id}-v{numero}",
+                agent_id=agent_id,
+                numero=numero,
+                fecha=ts,
+                autor=autor,
+                hash_sha256=_hash_config(agent_id, numero, ts),
+                estado=estado,
+                descripcion=descripcion,
+            )
+            session.add(version)
+            try:
+                session.commit()
+            except IntegrityError:
+                # Otro deploy ganó este `numero`; recomputar y reintentar.
+                session.rollback()
+                continue
+            return _a_schema(version)
+    raise HTTPException(
+        status_code=409,
+        detail="No se pudo asignar número de versión por colisión concurrente; reintentar",
+    )
 
 
 def version_activa(agent_id: str) -> Version | None:
@@ -118,7 +135,7 @@ def list_versions(agent_id: str):
         return {"versions": [_a_schema(v) for v in historial]}
 
 
-@router.post("/{agent_id}/rollback/{version_id}")
+@router.post("/{agent_id}/rollback/{version_id}", dependencies=[Depends(require_admin)])
 def rollback(agent_id: str, version_id: str):
     with get_session() as session:
         objetivo = (

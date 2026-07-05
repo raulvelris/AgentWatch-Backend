@@ -53,6 +53,8 @@ jobs:
             --cov=app.services.notificaciones \
             --cov=app.services.reloj \
             --cov=app.services.cifrado_fernet \
+            --cov=app.services.governance_service \
+            --cov=app.routers.governance \
             --cov-report=term-missing \
             --cov-fail-under=70
 

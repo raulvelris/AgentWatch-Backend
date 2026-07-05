@@ -6,7 +6,7 @@ from app.core.database import get_session
 from app.models import AgentEnvVarDB, PromotionDB
 from app.schemas.environment import PromoteRequest
 from app.services import reloj
-from app.services.deps import get_current_claims
+from app.services.deps import require_authenticated
 from app.services.governance_service import evaluar_gate_promocion
 from app.services.notificaciones import encolar_notificacion
 
@@ -122,23 +122,18 @@ def list_environments():
 def promote(
     agent_id: str,
     req: PromoteRequest,
-    claims: dict | None = Depends(get_current_claims),
+    claims: dict = Depends(require_authenticated),
 ):
     if req.ambiente_destino not in AMBIENTES or req.ambiente_origen not in AMBIENTES:
         raise HTTPException(status_code=400, detail="Ambiente inválido")
 
-    # RF06: la promoción a prod requiere rol ADMIN.
-    # Identidad: el JWT del Módulo 4 (header Authorization: Bearer) tiene
-    # precedencia; con token, rol y solicitante salen de los claims.
-    # FALLBACK TEMPORAL documentado: sin token, el rol llega en el body
-    # (rol_solicitante) — el front actual y 5 tests existentes dependen de
-    # ese stub; se retira cuando el front envíe el token (RF13, Módulo 4).
-    if claims is not None:
-        rol = claims.get("rol", "")
-        solicitante = claims.get("sub", req.solicitante)
-    else:
-        rol = req.rol_solicitante
-        solicitante = req.solicitante
+    # RF06: promover exige token válido (401 sin él). El rol y el solicitante
+    # salen de los claims del JWT; el destino prod exige rol ADMIN (403 si no).
+    # El campo `rol_solicitante` del body quedó deprecado: ya no se usa, el rol
+    # es el del token. Se deja en el schema por compatibilidad hasta que el
+    # front deje de mandarlo.
+    rol = claims.get("rol", "")
+    solicitante = claims.get("sub", req.solicitante)
     es_admin = rol.upper() == "ADMIN"
     if req.ambiente_destino == "prod" and not es_admin:
         raise HTTPException(

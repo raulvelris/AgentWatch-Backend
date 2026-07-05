@@ -5,6 +5,8 @@ cifradas (AgentEnvVarDB). Al aprobar una promoción, esas variables se copian de
 ambiente origen al destino. Estos tests ejercen el ciclo por la API: PUT en el
 origen, promote, GET en el destino. Agentes con id propio para no chocar con los
 otros archivos de la suite.
+
+PUT de vars y promote exigen token; el rol sale del token (ADMIN o VIEWER).
 """
 
 from fastapi.testclient import TestClient
@@ -14,9 +16,15 @@ from app.main import app
 client = TestClient(app)
 
 
+def _h(usuario: str = "admin_a") -> dict:
+    token = client.get("/api/v1/auth/login", params={"usuario": usuario}).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def _promote_admin(agente, origen, destino):
     return client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_h("admin_a"),
         json={
             "ambiente_origen": origen,
             "ambiente_destino": destino,
@@ -30,6 +38,7 @@ def test_promocion_aprobada_mueve_las_vars():
     ag = "agente-promote-mueve"
     client.put(
         f"/api/v1/agents/{ag}/environments/staging/vars",
+        headers=_h(),
         json={"vars": {"OPENAI_KEY": "sk-staging-secreto", "DB_URL": "postgres://staging/db"}},
     )
 
@@ -48,11 +57,13 @@ def test_promocion_pendiente_no_mueve():
     ag = "agente-promote-pendiente"
     client.put(
         f"/api/v1/agents/{ag}/environments/dev/vars",
+        headers=_h(),
         json={"vars": {"TOKEN": "valor-dev-secreto"}},
     )
 
     r = client.post(
         f"/api/v1/agents/{ag}/promote",
+        headers=_h("viewer_a"),
         json={
             "ambiente_origen": "dev",
             "ambiente_destino": "staging",
@@ -73,10 +84,12 @@ def test_upsert_sobrescribe_y_conserva_extras():
     ag = "agente-promote-upsert"
     client.put(
         f"/api/v1/agents/{ag}/environments/staging/vars",
+        headers=_h(),
         json={"vars": {"SHARED": "valor-de-staging"}},
     )
     client.put(
         f"/api/v1/agents/{ag}/environments/prod/vars",
+        headers=_h(),
         json={"vars": {"SHARED": "valor-viejo-de-prod", "SOLO_PROD": "secreto-solo-prod"}},
     )
 
@@ -105,6 +118,7 @@ def test_promocion_al_mismo_ambiente_no_rompe():
     ag = "agente-promote-mismo"
     client.put(
         f"/api/v1/agents/{ag}/environments/staging/vars",
+        headers=_h(),
         json={"vars": {"K": "valor-cualquiera"}},
     )
     r = _promote_admin(ag, "staging", "staging")
