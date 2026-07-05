@@ -1,22 +1,33 @@
-fastapi
-uvicorn[standard]
-pydantic
-pydantic-settings
+# Versiones fijadas (==) para que un install limpio de un pull siempre de el
+# mismo resultado. Sin fijar, pip traia fastapi 0.139 / starlette 1.3.1 y 2 tests
+# de test_unificacion_smoke.py fallaban. Set alineado con el entorno ya validado.
+fastapi==0.136.3
+uvicorn[standard]==0.49.0
+pydantic==2.13.4
+pydantic-settings==2.14.1
 # Persistencia (Módulo 2: versiones/promociones/despliegues en SQLite)
-sqlalchemy
+sqlalchemy==2.0.51
 # Módulo 5 (RF17-RF20): driver de Neo4j + carga de .env en sus services
-neo4j
-python-dotenv
+neo4j==6.2.0
+python-dotenv==1.2.2
 # Módulo 4 (auth JWT + hashing de passwords)
-python-jose[cryptography]
-passlib[bcrypt]
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
 # Módulo 2 (RF06/ADR-02.6): cifrado Fernet de variables por ambiente. Ya viene
 # como dep transitiva de python-jose[cryptography]; se declara explícita porque
 # app/services/cifrado_fernet.py la importa de forma directa.
-cryptography
+cryptography==49.0.0
 # PR #4 (Rodrigo) — sin uso en el repo todavía; justificación pendiente
-requests
+requests==2.34.2
 # Tests (Módulo 2)
-pytest
-pytest-cov
-httpx
+pytest==9.0.3
+pytest-cov==7.1.0
+httpx==0.28.1
+# Transitivas fijadas a proposito. fastapi pide starlette>=0.46.0 sin tope, y
+# starlette 1.3 fue lo que rompio los 2 tests (app.routes cambio de forma). Si
+# no se fijan aca, un install limpio vuelve a flotar a la version nueva y el bug
+# regresa. pydantic-core y anyio se fijan por la misma razon (los deja flotar
+# pydantic y starlette).
+starlette==1.2.1
+pydantic-core==2.46.4
+anyio==4.13.0
