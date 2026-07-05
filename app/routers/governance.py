@@ -1,22 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas.policy import Policy
 from app.services import governance_service
+from app.services.deps import require_admin
 
 # Gobernanza: políticas persistidas en SQLite (tabla `policies`) vía
 # governance_service. Las de tipo "release_gate" las consulta el Módulo 2
 # al promover a prod (ver environments.promote y plan-mlops-release-gate.md).
 #
-# Limitación conocida (documentada, decisión de alcance): estos endpoints no
-# exigen autenticación — cualquiera puede crear una política. La superficie
-# es del Módulo 4 (auth/RBAC); gatearla con ADMIN queda como trabajo suyo.
+# Auth: crear una política puede frenar un deploy a prod, así que el POST
+# exige token con rol ADMIN (require_admin: 401 sin token, 403 si no es
+# ADMIN). Los GET siguen abiertos: listan configuración, no la cambian.
 router = APIRouter(
     prefix="/api/v1/governance",
     tags=["Governance"]
 )
 
 
-@router.post("/policies")
+@router.post("/policies", dependencies=[Depends(require_admin)])
 def create_policy(policy: Policy):
     try:
         creada = governance_service.crear_politica(policy)
