@@ -10,7 +10,10 @@ client = TestClient(app)
 
 
 def test_rutas_de_todos_los_modulos_montadas_en_un_solo_app():
-    paths = {r.path for r in app.routes}
+    # Leemos las rutas montadas desde el schema OpenAPI, que es API publica y
+    # estable. Antes se usaba app.routes, pero en Starlette 1.3 esa lista trae
+    # objetos _IncludedRouter sin .path y la comprension rompia con AttributeError.
+    paths = set(app.openapi()["paths"])
     # Módulo 2 (Despliegue / CI-CD)
     assert "/api/v1/agents/{agent_id}/deploy" in paths
     assert "/api/v1/agents/{agent_id}/versions" in paths
@@ -34,7 +37,7 @@ def test_rutas_de_todos_los_modulos_montadas_en_un_solo_app():
 def test_audit_del_modulo4_ya_no_colisiona_con_el_audit_trail():
     # H10: ambos compartían /api/v1/audit (GET / y POST /); el del Módulo 4
     # se movió a /api/v1/security/logs y /api/v1/audit quedó para RF18.
-    paths = {r.path for r in app.routes}
+    paths = set(app.openapi()["paths"])  # rutas montadas via schema OpenAPI (ver nota arriba)
     assert "/api/v1/security/logs/tenant/{tenant_id}" in paths
     assert "/api/v1/audit/export/json/{tenant_id}" in paths
 
