@@ -22,7 +22,12 @@ from app.core.database import get_session
 from app.models import AgentEnvVarDB
 from app.routers.environments import AMBIENTES
 from app.services import reloj
-from app.services.cifrado_fernet import cifrar, descifrar, enmascarar
+from app.services.cifrado_fernet import (
+    ErrorDescifrado,
+    cifrar,
+    descifrar,
+    enmascarar,
+)
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Deployment - Environments"])
 
@@ -46,9 +51,15 @@ def listar_vars(agent_id: str, env: str):
             .all()
         )
         # Desciframos solo para enmascarar: el valor en claro nunca sale de aquí.
-        vars_enmascaradas = {
-            f.nombre: enmascarar(descifrar(f.valor_cifrado)) for f in filas
-        }
+        # Si la clave no coincide con la usada al cifrar (ENVVARS_KEY cambió o se
+        # perdió la efímera tras un reinicio), respondemos 503 en vez de un 500
+        # crudo: es estado de configuración del server, no un error del request.
+        try:
+            vars_enmascaradas = {
+                f.nombre: enmascarar(descifrar(f.valor_cifrado)) for f in filas
+            }
+        except ErrorDescifrado as exc:
+            raise HTTPException(status_code=503, detail=str(exc))
     return {"vars": vars_enmascaradas}
 
 

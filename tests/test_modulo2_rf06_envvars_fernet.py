@@ -6,11 +6,14 @@ temporal del conftest; verificación con SQL crudo como en
 test_modulo2_rf07_inmutabilidad.py — el evaluador puede correr ese SELECT en vivo).
 """
 
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
 from app.core import database
+from app.core.config import settings
 from app.main import app
+from app.services import cifrado_fernet
 
 client = TestClient(app)
 
@@ -117,3 +120,45 @@ def test_upsert_sobreescribe_sin_duplicar():
             {"a": AGENTE},
         ).fetchall()
     assert len(filas) == 1  # una sola fila: upsert, no duplicado
+
+
+def test_get_con_clave_cambiada_da_503(monkeypatch):
+    # El bug real: se guarda con una clave y al reiniciar la clave es otra (o se
+    # perdio la efimera). El ciphertext viejo no descifra. Antes esto subia como
+    # 500 crudo; ahora debe ser un 503 claro que nombra ENVVARS_KEY.
+    agente = "agente-clave-cambiada"
+    key1 = Fernet.generate_key().decode()
+    key2 = Fernet.generate_key().decode()
+
+    monkeypatch.setattr(settings, "ENVVARS_KEY", key1)
+    r_put = client.put(
+        f"/api/v1/agents/{agente}/environments/dev/vars",
+        json={"vars": {"OPENAI_KEY": "sk-secreto-original"}},
+    )
+    assert r_put.status_code == 200
+
+    # "Reinicio" con otra clave: el ciphertext guardado con key1 ya no descifra.
+    monkeypatch.setattr(settings, "ENVVARS_KEY", key2)
+    r_get = client.get(f"/api/v1/agents/{agente}/environments/dev/vars")
+    assert r_get.status_code == 503
+    assert "ENVVARS_KEY" in r_get.json()["detail"]
+
+
+def test_con_clave_configurada_sobrevive_reinicio(monkeypatch):
+    # Con ENVVARS_KEY puesta, el ciphertext sobrevive un reinicio del proceso
+    # (que perderia la clave efimera en memoria). Simulamos el reinicio
+    # reseteando el global _clave_fernet; como la clave sale de settings, el
+    # descifrado sigue funcionando y el GET responde 200 enmascarado.
+    agente = "agente-clave-estable"
+    key1 = Fernet.generate_key().decode()
+
+    monkeypatch.setattr(settings, "ENVVARS_KEY", key1)
+    client.put(
+        f"/api/v1/agents/{agente}/environments/dev/vars",
+        json={"vars": {"DB_PASS": "postgres-super-secreto"}},
+    )
+
+    monkeypatch.setattr(cifrado_fernet, "_clave_fernet", None)  # simula reinicio
+    r_get = client.get(f"/api/v1/agents/{agente}/environments/dev/vars")
+    assert r_get.status_code == 200
+    assert r_get.json()["vars"]["DB_PASS"].endswith("***")
