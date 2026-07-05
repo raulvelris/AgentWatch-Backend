@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # Sin esta variable, cifrado_fernet genera una clave efímera en memoria
     # (solo desarrollo; los valores no sobreviven reinicios). En producción,
     # SIEMPRE definirla en .env — es la "clave fuera del almacén" de EC-02.5.
+    # Si la clave no coincide con la usada al cifrar, el GET de variables
+    # responde 503 con un mensaje claro (no un 500 crudo).
     ENVVARS_KEY: str | None = None
 
     # --- Módulo 5 (Trazabilidad, Gabriel) — opcionales ---
