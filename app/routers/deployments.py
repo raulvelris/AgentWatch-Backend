@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from app.core.database import get_session
 from app.models import DeploymentRecordDB
 from app.routers.versions import cambiar_estado, registrar_version, version_activa
-from app.services.deps import get_current_claims
+from app.services.deps import require_admin
 from app.services.notificaciones import encolar_notificacion
 
 # Módulo 2 (Despliegue / CI-CD) — RF05: despliegue de 1 clic con log en vivo (SSE).
@@ -149,7 +149,7 @@ async def _pipeline(agent_id: str, autor: str, fallo: str | None):
 async def deploy(
     agent_id: str,
     fallo: str | None = None,
-    claims: dict | None = Depends(get_current_claims),
+    claims: dict = Depends(require_admin),
 ):
     # NOTA DE ARQUITECTURA: aquí, para el prototipo académico, el pipeline está
     # simulado (estados reales + timing). En producción (ver ADR-02.1) cada fase
@@ -164,9 +164,10 @@ async def deploy(
             status_code=400,
             detail=f"Fase de fallo inválida; usar una de: {sorted(FASES_VALIDAS)}",
         )
-    # RF05 'quién': identidad real del JWT del Módulo 4 si llega el header
-    # Authorization; fallback "developer" mientras el front no envíe token.
-    autor = claims.get("sub", "developer") if claims else "developer"
+    # RF05 'quién': el deploy exige token ADMIN (require_admin), así que el autor
+    # sale del claim `sub` del JWT. El fallback "developer" queda por si el claim
+    # viniera sin sub.
+    autor = claims.get("sub", "developer")
     return StreamingResponse(
         _pipeline(agent_id, autor, fallo),
         media_type="text/event-stream",

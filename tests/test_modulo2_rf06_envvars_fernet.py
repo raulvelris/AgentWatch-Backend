@@ -4,6 +4,8 @@ Verifica EC-02.5: la BD solo contiene ciphertext y la API solo expone valores
 enmascarados. Sigue el patrón del Módulo 2 (TestClient a nivel de módulo + BD
 temporal del conftest; verificación con SQL crudo como en
 test_modulo2_rf07_inmutabilidad.py — el evaluador puede correr ese SELECT en vivo).
+
+El PUT y el DELETE exigen token ADMIN; el GET queda abierto (valores enmascarados).
 """
 
 from cryptography.fernet import Fernet
@@ -20,11 +22,18 @@ client = TestClient(app)
 AGENTE = "agente-envvars"
 
 
+def _h(usuario: str = "admin_a") -> dict:
+    """Token ADMIN para el PUT/DELETE de variables (require_admin)."""
+    token = client.get("/api/v1/auth/login", params={"usuario": usuario}).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_put_env_vars_guarda_cifrado():
     # EC-02.5: tras un PUT, valor_cifrado NO contiene el texto plano.
     secreto = "sk-super-secreto-1234"
     r = client.put(
         f"/api/v1/agents/{AGENTE}/environments/dev/vars",
+        headers=_h(),
         json={"vars": {"OPENAI_KEY": secreto}},
     )
     assert r.status_code == 200
@@ -49,6 +58,7 @@ def test_get_env_vars_devuelve_enmascarado():
     secreto = "postgresql://user:pass@host/db"
     client.put(
         f"/api/v1/agents/{AGENTE}/environments/staging/vars",
+        headers=_h(),
         json={"vars": {"DATABASE_URL": secreto}},
     )
     r = client.get(f"/api/v1/agents/{AGENTE}/environments/staging/vars")
@@ -64,6 +74,7 @@ def test_get_env_vars_devuelve_enmascarado():
 def test_env_invalido_devuelve_400():
     r_put = client.put(
         f"/api/v1/agents/{AGENTE}/environments/produccion/vars",
+        headers=_h(),
         json={"vars": {"X": "y"}},
     )
     assert r_put.status_code == 400
@@ -74,6 +85,7 @@ def test_env_invalido_devuelve_400():
 def test_put_sin_vars_dict_devuelve_400():
     r = client.put(
         f"/api/v1/agents/{AGENTE}/environments/dev/vars",
+        headers=_h(),
         json={"otra_cosa": 1},
     )
     assert r.status_code == 400
@@ -82,9 +94,12 @@ def test_put_sin_vars_dict_devuelve_400():
 def test_delete_env_var():
     client.put(
         f"/api/v1/agents/{AGENTE}/environments/dev/vars",
+        headers=_h(),
         json={"vars": {"BORRABLE": "valor-temporal"}},
     )
-    r_del = client.delete(f"/api/v1/agents/{AGENTE}/environments/dev/vars/BORRABLE")
+    r_del = client.delete(
+        f"/api/v1/agents/{AGENTE}/environments/dev/vars/BORRABLE", headers=_h()
+    )
     assert r_del.status_code == 200
     assert r_del.json() == {"ok": True}
 
@@ -96,7 +111,9 @@ def test_delete_env_var():
 
 
 def test_delete_inexistente_devuelve_404():
-    r = client.delete(f"/api/v1/agents/{AGENTE}/environments/dev/vars/NO_EXISTE")
+    r = client.delete(
+        f"/api/v1/agents/{AGENTE}/environments/dev/vars/NO_EXISTE", headers=_h()
+    )
     assert r.status_code == 404
 
 
@@ -104,10 +121,12 @@ def test_upsert_sobreescribe_sin_duplicar():
     # Mismo nombre dos veces: el segundo PUT actualiza, no duplica (UniqueConstraint).
     client.put(
         f"/api/v1/agents/{AGENTE}/environments/prod/vars",
+        headers=_h(),
         json={"vars": {"TOKEN": "valor-1"}},
     )
     client.put(
         f"/api/v1/agents/{AGENTE}/environments/prod/vars",
+        headers=_h(),
         json={"vars": {"TOKEN": "valor-2-distinto"}},
     )
     engine = database.get_engine()
@@ -133,6 +152,7 @@ def test_get_con_clave_cambiada_da_503(monkeypatch):
     monkeypatch.setattr(settings, "ENVVARS_KEY", key1)
     r_put = client.put(
         f"/api/v1/agents/{agente}/environments/dev/vars",
+        headers=_h(),
         json={"vars": {"OPENAI_KEY": "sk-secreto-original"}},
     )
     assert r_put.status_code == 200
@@ -155,6 +175,7 @@ def test_con_clave_configurada_sobrevive_reinicio(monkeypatch):
     monkeypatch.setattr(settings, "ENVVARS_KEY", key1)
     client.put(
         f"/api/v1/agents/{agente}/environments/dev/vars",
+        headers=_h(),
         json={"vars": {"DB_PASS": "postgres-super-secreto"}},
     )
 

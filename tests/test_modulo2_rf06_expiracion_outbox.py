@@ -11,10 +11,18 @@ from app.services import reloj
 client = TestClient(app)
 
 
+def _h(usuario: str = "viewer_a") -> dict:
+    """Token en el header. promote exige token válido; dev/staging por VIEWER
+    queda 'pendiente'."""
+    token = client.get("/api/v1/auth/login", params={"usuario": usuario}).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_promotion_pendiente_expira_a_las_24h(monkeypatch):
     agente = "agente-expira-24h"
     respuesta = client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_h(),
         json={
             "ambiente_origen": "dev",
             "ambiente_destino": "staging",
@@ -48,6 +56,7 @@ def test_promotion_pendiente_notifica_al_admin():
     agente = "agente-notifica-admin"
     client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_h(),
         json={
             "ambiente_origen": "dev",
             "ambiente_destino": "staging",
@@ -69,8 +78,8 @@ def test_promotion_pendiente_notifica_al_admin():
 
 def test_jwt_tiene_precedencia_sobre_el_rol_del_body():
     # Un VIEWER autenticado no puede promover a prod aunque el body
-    # autodeclare ADMIN: el claim del token manda (el stub rol-en-body solo
-    # aplica cuando NO hay token).
+    # autodeclare ADMIN: el rol sale del claim del token; el `rol_solicitante`
+    # del body ya no se usa.
     agente = "agente-precedencia-jwt"
     token = client.get("/api/v1/auth/login", params={"usuario": "viewer_a"}).json()["token"]
     respuesta = client.post(

@@ -8,17 +8,23 @@ from app.main import app
 client = TestClient(app)
 
 
+def _h(usuario: str = "admin_a") -> dict:
+    """Token en el header. deploy ahora exige ADMIN (require_admin)."""
+    token = client.get("/api/v1/auth/login", params={"usuario": usuario}).json()["token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_deploy_exitoso_persiste_deployment_record():
     # RF05: hasta un deploy exitoso deja registro (autor, fecha, resultado).
     agente = "agente-record-exitoso"
-    respuesta = client.post(f"/api/v1/agents/{agente}/deploy")
+    respuesta = client.post(f"/api/v1/agents/{agente}/deploy", headers=_h())
     assert respuesta.status_code == 200
 
     registros = client.get(f"/api/v1/agents/{agente}/deployments").json()["deployments"]
     assert len(registros) == 1
     registro = registros[0]
     assert registro["resultado"] == "success"
-    assert registro["autor"] == "developer"  # fallback sin JWT
+    assert registro["autor"] == "admin_a"  # autor = claim sub del token ADMIN
     assert registro["version_desplegada"] == f"{agente}-v1"
     assert registro["version_origen"] is None  # primer deploy: sin versión previa
     assert registro["fecha"]
@@ -27,10 +33,12 @@ def test_deploy_exitoso_persiste_deployment_record():
 def test_deploy_con_fallo_emite_error_revert_y_failed():
     agente = "agente-fallo-revert"
     # Primer deploy exitoso deja v1 activa.
-    client.post(f"/api/v1/agents/{agente}/deploy")
+    client.post(f"/api/v1/agents/{agente}/deploy", headers=_h())
 
     # Segundo deploy falla en healthcheck: SSE narra error -> revert -> failed.
-    respuesta = client.post(f"/api/v1/agents/{agente}/deploy?fallo=healthcheck")
+    respuesta = client.post(
+        f"/api/v1/agents/{agente}/deploy?fallo=healthcheck", headers=_h()
+    )
     assert respuesta.status_code == 200
     cuerpo = respuesta.text
     assert '"estado": "error"' in cuerpo
@@ -65,7 +73,9 @@ def test_deploy_con_fallo_emite_error_revert_y_failed():
 
 
 def test_deploy_fallo_en_fase_invalida_da_400():
-    respuesta = client.post("/api/v1/agents/agente-x/deploy?fallo=meteorito")
+    respuesta = client.post(
+        "/api/v1/agents/agente-x/deploy?fallo=meteorito", headers=_h()
+    )
     assert respuesta.status_code == 400
 
 

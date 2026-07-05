@@ -76,6 +76,7 @@ def _crear_politica(policy_id: str, tenant_id: str = "tenant_a", **extra) -> dic
 def _promover_a_prod_como_admin(agente: str):
     return client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_headers_admin(),
         json={
             "ambiente_origen": "staging",
             "ambiente_destino": "prod",
@@ -87,13 +88,15 @@ def _promover_a_prod_como_admin(agente: str):
 
 def _sembrar_fallos(agente: str, cantidad: int):
     for _ in range(cantidad):
-        r = client.post(f"/api/v1/agents/{agente}/deploy?fallo=queued")
+        r = client.post(
+            f"/api/v1/agents/{agente}/deploy?fallo=queued", headers=_headers_admin()
+        )
         assert r.status_code == 200
 
 
 def _sembrar_exitos(agente: str, cantidad: int):
     for _ in range(cantidad):
-        r = client.post(f"/api/v1/agents/{agente}/deploy")
+        r = client.post(f"/api/v1/agents/{agente}/deploy", headers=_headers_admin())
         assert r.status_code == 200
 
 
@@ -105,6 +108,7 @@ def test_sin_politicas_de_gate_el_promote_no_cambia():
 
     r = client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_headers_admin("viewer_a"),
         json={"ambiente_destino": "prod", "solicitante": "dev1", "rol_solicitante": "DEVELOPER"},
     )
     assert r.status_code == 403
@@ -201,6 +205,7 @@ def test_gate_no_aplica_a_staging():
     _sembrar_fallos(agente, 3)
     r = client.post(
         f"/api/v1/agents/{agente}/promote",
+        headers=_headers_admin("viewer_a"),
         json={
             "ambiente_origen": "dev",
             "ambiente_destino": "staging",
@@ -310,3 +315,25 @@ def test_crear_politica_con_rol_no_admin_da_403():
         headers=_headers_admin("viewer_a"),
     )
     assert r.status_code == 403
+
+
+def test_gate_con_ventana_none_usa_default(sin_sleep):
+    # ventana=None es válida y el gate cae al VENTANA_DEFAULT (5). Con 3 fallos
+    # en esa ventana la tasa (0%) no supera el umbral y bloquea con 409.
+    agente = "gate-ventana-none"
+    _crear_politica("pol-ventana-none", ventana=None)
+    _sembrar_fallos(agente, 3)
+    r = _promover_a_prod_como_admin(agente)
+    assert r.status_code == 409
+
+
+def test_endpoint_vulnerable_fuga_politicas_cross_tenant():
+    # Demo de pen-testing (ruta *-vulnerable): NO filtra por tenant, así que
+    # devuelve políticas de otros tenants. Se verifica el comportamiento tal cual.
+    _crear_politica("pol-vuln-a", tenant_id="tenant-vuln-a")
+    _crear_politica("pol-vuln-b", tenant_id="tenant-vuln-b")
+    fuga = client.get(
+        "/api/v1/governance/tenant/tenant-vuln-a/policies-vulnerable"
+    ).json()
+    ids = {p["id"] for p in fuga["policies"]}
+    assert {"pol-vuln-a", "pol-vuln-b"} <= ids  # fuga cross-tenant deliberada

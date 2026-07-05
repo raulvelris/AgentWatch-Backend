@@ -9,14 +9,12 @@ Comparte el prefijo `/api/v1/agents` con environments.py; las rutas no se
 solapan (`/{agent_id}/environments/{env}/vars`). Reutiliza la lista AMBIENTES
 de environments.py para no duplicar la fuente de verdad de ambientes válidos.
 
-Limitación conocida (decisión de alcance, no descuido): el PUT y el DELETE no
-exigen autenticación todavía. El front los llama sin token y el JWT del header
-llega con RF13 (Módulo 4). Cerrarlos con ADMIN, como se hizo con el POST de
-governance, queda pendiente para cuando el front envíe el token. Ver
-`app.services.deps.require_admin` para la dependencia ya lista.
+Auth: el PUT y el DELETE escriben secretos por ambiente, así que exigen token
+ADMIN (require_admin: 401 sin token, 403 sin ADMIN). El GET queda abierto:
+devuelve valores enmascarados, no el texto plano.
 """
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from app.core.database import get_session
 from app.models import AgentEnvVarDB
@@ -28,6 +26,7 @@ from app.services.cifrado_fernet import (
     descifrar,
     enmascarar,
 )
+from app.services.deps import require_admin
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Deployment - Environments"])
 
@@ -63,7 +62,10 @@ def listar_vars(agent_id: str, env: str):
     return {"vars": vars_enmascaradas}
 
 
-@router.put("/{agent_id}/environments/{env}/vars")
+@router.put(
+    "/{agent_id}/environments/{env}/vars",
+    dependencies=[Depends(require_admin)],
+)
 def guardar_vars(agent_id: str, env: str, payload: dict = Body(...)):
     """Upsert de variables CIFRADAS con Fernet. Sobrescribe la combinación
     (agent_id, ambiente, nombre) si ya existe."""
@@ -104,7 +106,10 @@ def guardar_vars(agent_id: str, env: str, payload: dict = Body(...)):
     return {"ok": True, "guardadas": len(vars_in)}
 
 
-@router.delete("/{agent_id}/environments/{env}/vars/{nombre}")
+@router.delete(
+    "/{agent_id}/environments/{env}/vars/{nombre}",
+    dependencies=[Depends(require_admin)],
+)
 def eliminar_var(agent_id: str, env: str, nombre: str):
     """Elimina una variable específica del ambiente."""
     _validar_ambiente(env)
