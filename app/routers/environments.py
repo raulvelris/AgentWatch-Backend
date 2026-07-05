@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.database import get_session
-from app.models import PromotionDB
+from app.models import AgentEnvVarDB, PromotionDB
 from app.schemas.environment import PromoteRequest
 from app.services import reloj
 from app.services.deps import get_current_claims
@@ -67,6 +67,52 @@ def _notificar_expiradas(expiradas: list[PromotionDB]) -> None:
         )
 
 
+def _copiar_env_vars(session, agent_id: str, origen: str, destino: str) -> int:
+    """RF06: mueve las variables de entorno del agente del ambiente `origen` al
+    `destino` cuando una promoción queda aprobada. Corre en la MISMA sesión que
+    el PromotionDB para que sea atómico: aprobación y movida juntas o ninguna.
+
+    Copia el ciphertext tal cual, sin re-cifrar: la clave Fernet es la misma para
+    todos los ambientes, así que el destino descifra al mismo valor. Es "sin
+    modificaciones" al pie de la letra, y no depende de ENVVARS_KEY (es una copia
+    de BD, no toca crypto). Upsert: sobrescribe las de igual nombre; las que el
+    destino tuviera aparte se conservan. Devuelve cuántas movió."""
+    if origen == destino:
+        return 0
+    filas = (
+        session.query(AgentEnvVarDB)
+        .filter(
+            AgentEnvVarDB.agent_id == agent_id,
+            AgentEnvVarDB.ambiente == origen,
+        )
+        .all()
+    )
+    for f in filas:
+        existente = (
+            session.query(AgentEnvVarDB)
+            .filter(
+                AgentEnvVarDB.agent_id == agent_id,
+                AgentEnvVarDB.ambiente == destino,
+                AgentEnvVarDB.nombre == f.nombre,
+            )
+            .first()
+        )
+        if existente is not None:
+            existente.valor_cifrado = f.valor_cifrado
+            existente.fecha = f.fecha
+        else:
+            session.add(
+                AgentEnvVarDB(
+                    agent_id=agent_id,
+                    ambiente=destino,
+                    nombre=f.nombre,
+                    valor_cifrado=f.valor_cifrado,
+                    fecha=f.fecha,
+                )
+            )
+    return len(filas)
+
+
 @router.get("/environments")
 def list_environments():
     return {"environments": AMBIENTES}
@@ -125,6 +171,12 @@ def promote(
     )
     with get_session() as session:
         session.add(registro)
+        # RF06: una promoción aprobada mueve la config del agente (sus variables
+        # de entorno) del origen al destino, en la misma transacción.
+        if registro.estado == "aprobada":
+            _copiar_env_vars(
+                session, agent_id, req.ambiente_origen, req.ambiente_destino
+            )
         session.commit()
         respuesta = _a_dict(registro)
 
