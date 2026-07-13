@@ -22,10 +22,17 @@ router = APIRouter(
 # sobrevive reinicios del proceso.
 
 
-def _hash_config(agent_id: str, numero: int, ts: str) -> str:
+def _hash_config(configuracion: dict) -> str:
+    """Genera un SHA-256 determinista de la configuración completa del agente.
+
+    Se ordenan las claves y se eliminan espacios para que la misma
+    configuración siempre produzca exactamente el mismo hash.
+    """
     payload = json.dumps(
-        {"agent_id": agent_id, "numero": numero, "ts": ts},
+        configuracion,
+        ensure_ascii=False,
         sort_keys=True,
+        separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
@@ -41,18 +48,25 @@ def _a_schema(v: VersionDB) -> Version:
         descripcion=v.descripcion,
     )
 
-
 def registrar_version(
     agent_id: str,
     autor: str,
     estado: str = "activa",
     descripcion: str = "",
+    configuracion: dict | None = None,
 ) -> Version:
     """Crea y agrega una versión nueva (append-only: nunca se borra del historial).
-    El CONTENIDO de las versiones previas es inmutable —id, numero, fecha, autor y
-    hash_sha256 no cambian; lo refuerzan los triggers de la BD—; solo se actualiza
-    el puntero de ciclo de vida `estado` (la anterior 'activa'/'rollback' pasa a
-    'inactiva') para que haya una sola versión vigente."""
+
+    El contenido de las versiones previas es inmutable —id, número, fecha,
+    autor y hash_sha256 no cambian—; lo único que se actualiza es el estado
+    del ciclo de vida.
+    """
+    if configuracion is None:
+        # Compatibilidad con pruebas existentes que crean versiones
+        # directamente sin pasar por un despliegue real.
+        configuracion = {"agent_id": agent_id}
+
+    # Reintento acotado ante colisión de PK
     # Reintento acotado ante colisión de PK: dos deploys concurrentes del mismo
     # agente pueden calcular el mismo `numero` (len+1) y chocar en el id
     # `{agent_id}-v{numero}` al commitear. En vez de un 500, se recomputa con el
@@ -77,7 +91,7 @@ def registrar_version(
                 numero=numero,
                 fecha=ts,
                 autor=autor,
-                hash_sha256=_hash_config(agent_id, numero, ts),
+                hash_sha256=_hash_config(configuracion),
                 estado=estado,
                 descripcion=descripcion,
             )

@@ -11,6 +11,23 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
 
+class AgentDB(Base):
+    """Configuración persistente completa de un agente.
+
+    `config_json` conserva todos los campos del AgentConfig como un JSON
+    canónico. Esto permite recuperar la configuración real durante el deploy
+    y calcular el hash SHA-256 de RF07.
+    """
+
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+    owner: Mapped[str] = mapped_column(String)
+    nombre: Mapped[str] = mapped_column(String)
+    tipo: Mapped[str] = mapped_column(String)
+    estado: Mapped[str] = mapped_column(String, default="DRAFT")
+    config_json: Mapped[str] = mapped_column(Text)
 
 class VersionDB(Base):
     """RF07: historial inmutable (triggers en database.py). `estado` es el

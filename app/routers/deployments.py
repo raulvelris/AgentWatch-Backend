@@ -1,5 +1,6 @@
 import asyncio
 import json
+from app.routers.agents import obtener_agente_por_id
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -67,13 +68,26 @@ def _registrar_despliegue(
 
 
 async def _pipeline(agent_id: str, autor: str, fallo: str | None):
-    # Versión vigente ANTES de este deploy: es la versión de origen del
-    # registro y la que el revert automático restaura si algo falla.
+    agente = obtener_agente_por_id(agent_id)
+
+    if agente is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontró la configuración del agente",
+        )
+
+    configuracion = agente.model_dump(mode="json")
+
     origen = version_activa(agent_id)
 
     # RF05 CA-05 + RF07: el deploy crea la versión candidata al inicio
     # (la previa pasa a 'inactiva'); así el fallo tiene algo que revertir.
-    candidata = registrar_version(agent_id, autor=autor, estado="activa")
+    candidata = registrar_version(
+    agent_id,
+    autor=autor,
+    estado="activa",
+    configuracion=configuracion,
+)
 
     for fase, mensaje in PASOS:
         if fallo == fase:

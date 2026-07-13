@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from fastapi import HTTPException
 from app.schemas.tenant import Tenant
-from app.routers.agents import agents_db
+from app.routers.agents import listar_agentes
 from app.services.autenticacion_serv import obtener_datos_token
 
 router = APIRouter(
@@ -47,23 +47,23 @@ def get_tenant(tenant_id: str):
 
 @router.get("/{tenant_id}/agents")
 def get_tenant_agents(tenant_id: str):
+    agentes = listar_agentes()
 
     tenant_agents = [
-        agent for agent in agents_db
+        agent for agent in agentes
         if agent.tenant_id == tenant_id
     ]
 
     return {
         "tenant": tenant_id,
-        "agents": tenant_agents
+        "agents": tenant_agents,
     }
 #vulnerabilidad
 @router.get("/{tenant_id}/agents-vulnerable")
 def get_tenant_agents_vulnerable(tenant_id: str):
-
     return {
         "tenant": tenant_id,
-        "agents": agents_db
+        "agents": listar_agentes(),
     }
 
 #vulnerabilidad
