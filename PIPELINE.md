@@ -30,7 +30,7 @@ PR ──► ci.yml ──────────────► merge a develo
 Cada paso simulado lo dice en su `name` con el sufijo **(SIMULADO)** y lleva el comando real
 de Azure comentado junto al paso.
 
-## 1. `ci.yml` — Quality gate (dispara en cada PR y push a develop)
+## 1. `ci.yml` — Quality gate (dispara en cada PR y en push a develop/main)
 - **lint** con `ruff` sobre `app` y `tests`.
 - **tests** con `pytest` y **gate de cobertura ≥ 70%** sobre TODO el código del Módulo 2:
   routers (`deployments`, `versions`, `environments`, `notifications`), schemas, persistencia
