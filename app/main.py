@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
+from app.routers.agents import _crear_agentes_demo_si_no_existen
 from app.routers.agents import router as agents_router
 from app.routers.templates import router as templates_router
 from app.routers.security import router as security_router
@@ -28,6 +29,11 @@ from rf17_rf20_gabriel.routes.replay import router as replay_router
 # TestClient de los tests existentes —que no usa context manager— también
 # tenga la BD lista.
 init_db()
+
+# Los agentes demo se siembran DESPUÉS de init_db(): la siembra consulta la
+# tabla `agents`, y en el import de agents.py las tablas aún no existen (con
+# una BD fresca el proceso moría con "no such table: agents").
+_crear_agentes_demo_si_no_existen()
 
 app = FastAPI(
     title="AgentWatch API",

@@ -99,7 +99,9 @@ def _crear_agentes_demo_si_no_existen() -> None:
         session.commit()
 
 
-_crear_agentes_demo_si_no_existen()
+# La siembra se invoca desde app/main.py DESPUÉS de init_db(): a nivel de
+# import de este módulo las tablas todavía no existen y una BD fresca moría
+# con "no such table: agents" antes de poder arrancar.
 
 
 @router.post("/")

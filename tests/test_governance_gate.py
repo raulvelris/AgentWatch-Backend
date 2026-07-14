@@ -15,6 +15,7 @@ from app.core.database import get_session
 from app.main import app
 from app.models import PolicyDB
 from app.routers import deployments
+from tests.util_agentes import crear_agente
 
 client = TestClient(app)
 
@@ -103,7 +104,7 @@ def _sembrar_exitos(agente: str, cantidad: int):
 def test_sin_politicas_de_gate_el_promote_no_cambia():
     # (a) Regresión: sin políticas release_gate, flujo idéntico al actual
     # (403 sin ADMIN, 200 aprobada con ADMIN) aunque el agente tenga fallos.
-    agente = "gate-sin-politicas"
+    agente = crear_agente(client)
     _sembrar_fallos(agente, 3)
 
     r = client.post(
@@ -121,7 +122,7 @@ def test_sin_politicas_de_gate_el_promote_no_cambia():
 def test_promote_bloqueada_por_gate_aunque_sea_admin():
     # (b) Bloqueo duro: tasa 0% < umbral 80% → 409 incluso para ADMIN, con
     # el nombre de la política y las tasas en el detalle.
-    agente = "gate-bloquea-admin"
+    agente = crear_agente(client)
     _crear_politica("pol-bloquea-admin")
     _sembrar_fallos(agente, 3)
 
@@ -135,7 +136,7 @@ def test_promote_bloqueada_por_gate_aunque_sea_admin():
 def test_promote_pasa_cuando_la_tasa_supera_el_umbral(sin_sleep):
     # (c) Desbloqueo: éxitos recientes suben la tasa dentro de la ventana
     # (5 éxitos tras 2 fallos → últimos 5 = 100%) y la promoción pasa.
-    agente = "gate-se-desbloquea"
+    agente = crear_agente(client)
     _crear_politica("pol-se-desbloquea")
     _sembrar_fallos(agente, 2)
     assert _promover_a_prod_como_admin(agente).status_code == 409
@@ -155,7 +156,7 @@ def test_agente_sin_historial_no_se_bloquea():
 
 def test_politica_inactiva_no_bloquea():
     # (e) activa=False → la política no participa del gate.
-    agente = "gate-politica-inactiva"
+    agente = crear_agente(client)
     _crear_politica("pol-inactiva", activa=False)
     _sembrar_fallos(agente, 3)
     r = _promover_a_prod_como_admin(agente)
@@ -165,7 +166,7 @@ def test_politica_inactiva_no_bloquea():
 def test_politica_de_otro_tenant_no_afecta():
     # (f) Aislamiento multi-tenant vía claim `tenant` del JWT: la política de
     # tenant_b no bloquea a admin_a (tenant_a); la de tenant_a sí.
-    agente = "gate-otro-tenant"
+    agente = crear_agente(client)
     _crear_politica("pol-tenant-b", tenant_id="tenant_b")
     _sembrar_fallos(agente, 3)
 
@@ -189,7 +190,7 @@ def test_politica_de_otro_tenant_no_afecta():
 def test_tasa_igual_al_umbral_pasa(sin_sleep):
     # Borde documentado: bloquea solo `tasa < umbral`; el empate exacto pasa.
     # Ventana 5 con 4 éxitos y 1 fallo = 80% == umbral 0.8.
-    agente = "gate-empate-exacto"
+    agente = crear_agente(client)
     _crear_politica("pol-empate", umbral=0.8, ventana=5)
     _sembrar_fallos(agente, 1)
     _sembrar_exitos(agente, 4)
@@ -200,7 +201,7 @@ def test_tasa_igual_al_umbral_pasa(sin_sleep):
 def test_gate_no_aplica_a_staging():
     # Decisión abierta #1: el gate solo protege prod; dev→staging sigue
     # quedando 'pendiente' aunque el agente tenga fallos y haya política.
-    agente = "gate-staging-libre"
+    agente = crear_agente(client)
     _crear_politica("pol-staging-libre")
     _sembrar_fallos(agente, 3)
     r = client.post(
@@ -320,7 +321,7 @@ def test_crear_politica_con_rol_no_admin_da_403():
 def test_gate_con_ventana_none_usa_default(sin_sleep):
     # ventana=None es válida y el gate cae al VENTANA_DEFAULT (5). Con 3 fallos
     # en esa ventana la tasa (0%) no supera el umbral y bloquea con 409.
-    agente = "gate-ventana-none"
+    agente = crear_agente(client)
     _crear_politica("pol-ventana-none", ventana=None)
     _sembrar_fallos(agente, 3)
     r = _promover_a_prod_como_admin(agente)

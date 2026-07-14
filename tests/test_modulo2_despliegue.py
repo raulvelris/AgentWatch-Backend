@@ -11,10 +11,12 @@ import re
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.util_agentes import crear_agente
 
 client = TestClient(app)
 
-AGENTE = "11111111-2222-3333-4444-555555555555"
+# Agente real creado por la API: el deploy exige que exista en AgentDB.
+AGENTE = crear_agente(client)
 
 
 def _h(usuario: str = "admin_a") -> dict:
@@ -48,7 +50,7 @@ def test_deploy_crea_version_inmutable_con_sha256():
 
 def test_rollback_genera_version_nueva_sin_borrar():
     # RF07: el rollback NO borra ni modifica; agrega una versión 'rollback'.
-    ag = "agente-rollback-test"
+    ag = crear_agente(client)
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())
     antes = client.get(f"/api/v1/agents/{ag}/versions").json()["versions"]
@@ -150,7 +152,7 @@ def test_list_promotions_solo_del_agente():
 def test_rollback_encadenado_sigue_append_y_una_vigente():
     # RF07: el rollback de un rollback sigue siendo append-only y deja exactamente
     # una versión vigente (activa|rollback).
-    ag = "agente-chained-rollback"
+    ag = crear_agente(client)
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())  # v1
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())  # v2
     v1 = client.get(f"/api/v1/agents/{ag}/versions").json()["versions"][0]["id"]
