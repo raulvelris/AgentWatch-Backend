@@ -51,13 +51,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# RF06: environments_router va ANTES que agents_router. Comparten el prefijo
+# /api/v1/agents, y el GET /{agent_id} de agents (b4a3188) tapaba la ruta fija
+# GET /environments (matcheaba agent_id="environments" y respondía 404).
+app.include_router(environments_router)
 app.include_router(agents_router)
 app.include_router(templates_router)
 app.include_router(security_router)
 # Módulo 2 (Despliegue / CI-CD)
 app.include_router(deployments_router)
 app.include_router(versions_router)
-app.include_router(environments_router)
 app.include_router(env_vars_router)
 app.include_router(notifications_router)
 # Módulo 4 (Despliegue / CI-CD)
