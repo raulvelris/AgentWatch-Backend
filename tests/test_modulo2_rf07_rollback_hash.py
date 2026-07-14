@@ -31,7 +31,7 @@ def _preparar_dos_versiones_con_hash_distinto() -> tuple[str, dict, dict]:
     return agente, v1, v2
 
 
-def test_rollback_hereda_hash_de_version_objetivo():
+def test_rollback_hereda_hash_de_version_objetivo(sin_sleep):
     agente, v1, v2 = _preparar_dos_versiones_con_hash_distinto()
     r = client.post(f"/api/v1/agents/{agente}/rollback/{v1['id']}", headers=_h())
     assert r.status_code == 200
@@ -46,7 +46,7 @@ def test_rollback_hereda_hash_de_version_objetivo():
     assert historial[0]["hash_sha256"] == v1["hash_sha256"]
 
 
-def test_rollback_encadenado_conserva_hash():
+def test_rollback_encadenado_conserva_hash(sin_sleep):
     # Rollback de un rollback: el hash original sigue viajando intacto.
     agente, v1, _v2 = _preparar_dos_versiones_con_hash_distinto()
     v3 = client.post(

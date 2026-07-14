@@ -28,7 +28,7 @@ def test_deploy_viewer_da_403():
     assert r.status_code == 403
 
 
-def test_deploy_admin_funciona():
+def test_deploy_admin_funciona(sin_sleep):
     # Agente real: con ADMIN el deploy tiene que llegar al pipeline (200).
     agente = crear_agente(client)
     r = client.post(f"/api/v1/agents/{agente}/deploy", headers=_tok("admin_a"))

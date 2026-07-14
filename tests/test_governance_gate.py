@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 from app.core.database import get_session
 from app.main import app
 from app.models import PolicyDB
-from app.routers import deployments
 from tests.util_agentes import crear_agente
 
 client = TestClient(app)
@@ -37,14 +36,8 @@ def limpiar_politicas():
     _vaciar()
 
 
-@pytest.fixture
-def sin_sleep(monkeypatch):
-    """Deploy exitoso sin los ~3s de espera del pipeline simulado."""
-
-    async def _sleep_instantaneo(_segundos):
-        return None
-
-    monkeypatch.setattr(deployments.asyncio, "sleep", _sleep_instantaneo)
+# La fixture `sin_sleep` (deploy sin esperas) ahora vive en conftest.py,
+# compartida por toda la suite.
 
 
 def _headers_admin(usuario: str = "admin_a") -> dict:

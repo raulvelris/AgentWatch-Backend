@@ -57,14 +57,14 @@ def test_fallo_invalido_gana_al_agente_inexistente():
     assert r.status_code == 400
 
 
-def test_deploy_agente_demo_funciona():
+def test_deploy_agente_demo_funciona(sin_sleep):
     # Los agentes demo sembrados son deployables tal cual (config en AgentDB).
     r = client.post(f"/api/v1/agents/{DEMO_SOPORTE}/deploy", headers=_h())
     assert r.status_code == 200
     assert '"estado": "success"' in r.text
 
 
-def test_hash_de_version_es_el_de_la_config_real():
+def test_hash_de_version_es_el_de_la_config_real(sin_sleep):
     # RF07: el hash de la versión sale de la config real persistida (AgentDB),
     # con el mismo dump canónico, y NO del fallback {"agent_id": ...}.
     agente = crear_agente(client)
