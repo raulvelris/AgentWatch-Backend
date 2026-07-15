@@ -81,9 +81,30 @@ app.include_router(audit_trail_router, prefix="/api/v1")
 app.include_router(metrics_router, prefix="/api/v1")
 app.include_router(replay_router, prefix="/api/v1")
 
+import os
+from fastapi import Response, status
+
 @app.get("/")
 def root():
     return {
         "message": "AgentWatch Backend funcionando"
     }
+
+@app.get("/health")
+def health(response: Response):
+    simulate_error = os.getenv("SIMULATE_ERROR", "false").lower() == "true"
+    app_version = os.getenv("APP_VERSION", "v1")
+    if simulate_error:
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {
+            "status": "ERROR",
+            "version": app_version,
+            "message": "Fallo crítico simulado en despliegue seguro"
+        }
+    return {
+        "status": "OK",
+        "version": app_version,
+        "message": "Servicio saludable"
+    }
+
 
