@@ -17,6 +17,8 @@ class AgentDB(Base):
     `config_json` conserva todos los campos del AgentConfig como un JSON
     canónico. Esto permite recuperar la configuración real durante el deploy
     y calcular el hash SHA-256 de RF07.
+    `updated_at` (RF23 CA-03): timestamp ISO-8601 de la última modificación,
+    usado por el endpoint delta sync para filtrar cambios incrementales.
     """
 
     __tablename__ = "agents"
@@ -28,6 +30,10 @@ class AgentDB(Base):
     tipo: Mapped[str] = mapped_column(String)
     estado: Mapped[str] = mapped_column(String, default="DRAFT")
     config_json: Mapped[str] = mapped_column(Text)
+    # RF23 CA-03: timestamp de última modificación para delta sync
+    updated_at: Mapped[str] = mapped_column(
+        String, index=True, default="1970-01-01T00:00:00+00:00"
+    )
 
 class VersionDB(Base):
     """RF07: historial inmutable (triggers en database.py). `estado` es el
@@ -79,19 +85,23 @@ class DeploymentRecordDB(Base):
 
 
 class NotificacionDB(Base):
-    """Outbox de notificaciones (RF06): sustituto etiquetado del email/push
-    que llegará con el Módulo 6. El backend solo ENCOLA; el envío real es
-    responsabilidad futura del canal de notificaciones."""
+    """Outbox de notificaciones (RF22 / Módulo 6): notificaciones push con
+    3 niveles de criticidad (CRITICAL, WARNING, INFO). El campo `criticidad`
+    es el nivel formal del CA-01; `tipo` es la causa semántica del evento.
+    El backend encola; el envío real lo despacha NotificationService (FCM)."""
 
     __tablename__ = "notificaciones"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # "promotion_pendiente" | "promotion_expirada" | "deploy_fallido"
     tipo: Mapped[str] = mapped_column(String, index=True)
+    # RF22 CA-01: nivel formal de criticidad → "CRITICAL" | "WARNING" | "INFO"
+    criticidad: Mapped[str] = mapped_column(String, index=True, default="INFO", server_default="INFO")
     destinatario_rol: Mapped[str] = mapped_column(String, index=True)
     mensaje: Mapped[str] = mapped_column(Text)
     agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     fecha: Mapped[str] = mapped_column(String)  # ISO-8601 UTC
+    leida: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class PolicyDB(Base):
@@ -141,4 +151,59 @@ class AgentEnvVarDB(Base):
 
     __table_args__ = (
         UniqueConstraint("agent_id", "ambiente", "nombre", name="uq_agent_env_var"),
+    )
+
+
+class AlertDB(Base):
+    """RF24 CA-06: historial de alertas multicanal con estado de escalación y snooze.
+
+    `canales_usados` almacena JSON list de los canales que recibieron la alerta
+    (ej. ["push", "slack"]). `estado` refleja el ciclo de vida completo:
+    pendiente → leida | snoozed | escalada.
+    """
+
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True, default="tenant_a")
+    agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # CA-02: tipo de anomalía detectada
+    tipo: Mapped[str] = mapped_column(String, index=True)
+    # CA-01/CA-03: nivel de criticidad
+    criticidad: Mapped[str] = mapped_column(String, index=True)
+    mensaje: Mapped[str] = mapped_column(Text)
+    # CA-01: canales por los que se envió (JSON list)
+    canales_usados: Mapped[str] = mapped_column(Text, default="[]")  # JSON
+    # CA-05/CA-06: estado del ciclo de vida
+    estado: Mapped[str] = mapped_column(String, index=True, default="pendiente")
+    # CA-05: timestamp hasta el cual está silenciada
+    snooze_until: Mapped[str | None] = mapped_column(String, nullable=True)
+    # CA-04: escalación automática
+    escalado_a: Mapped[str | None] = mapped_column(String, nullable=True)
+    escalado_en: Mapped[str | None] = mapped_column(String, nullable=True)
+    fecha: Mapped[str] = mapped_column(String, index=True)  # ISO-8601 UTC
+
+
+class AlertChannelConfigDB(Base):
+    """RF24 CA-03: configuración de canales por empresa y nivel de criticidad.
+
+    Permite a cada tenant definir qué canales activar para cada nivel:
+    ej. CRITICAL → ["push", "slack"], INFO → ["email"].
+    `escalation_contact` es el email/ID del siguiente responsable para CA-04.
+    """
+
+    __tablename__ = "alert_channel_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+    criticidad: Mapped[str] = mapped_column(String)  # "CRITICAL" | "WARNING" | "INFO"
+    # JSON list: ["push", "email", "slack", "webhook"]
+    canales: Mapped[str] = mapped_column(Text, default='["push"]')
+    webhook_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    slack_webhook_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # CA-04: a quién escalar si CRITICAL no se lee en 15 min
+    escalation_contact: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "criticidad", name="uq_tenant_criticidad"),
     )
