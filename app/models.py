@@ -79,19 +79,23 @@ class DeploymentRecordDB(Base):
 
 
 class NotificacionDB(Base):
-    """Outbox de notificaciones (RF06): sustituto etiquetado del email/push
-    que llegará con el Módulo 6. El backend solo ENCOLA; el envío real es
-    responsabilidad futura del canal de notificaciones."""
+    """Outbox de notificaciones (RF22 / Módulo 6): notificaciones push con
+    3 niveles de criticidad (CRITICAL, WARNING, INFO). El campo `criticidad`
+    es el nivel formal del CA-01; `tipo` es la causa semántica del evento.
+    El backend encola; el envío real lo despacha NotificationService (FCM)."""
 
     __tablename__ = "notificaciones"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # "promotion_pendiente" | "promotion_expirada" | "deploy_fallido"
     tipo: Mapped[str] = mapped_column(String, index=True)
+    # RF22 CA-01: nivel formal de criticidad → "CRITICAL" | "WARNING" | "INFO"
+    criticidad: Mapped[str] = mapped_column(String, index=True, default="INFO", server_default="INFO")
     destinatario_rol: Mapped[str] = mapped_column(String, index=True)
     mensaje: Mapped[str] = mapped_column(Text)
     agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     fecha: Mapped[str] = mapped_column(String)  # ISO-8601 UTC
+    leida: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class PolicyDB(Base):

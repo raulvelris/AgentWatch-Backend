@@ -101,3 +101,13 @@ def init_db():
         with engine.begin() as conn:
             conn.execute(text(_TRIGGER_VERSIONES_SIN_UPDATE))
             conn.execute(text(_TRIGGER_VERSIONES_SIN_DELETE))
+            # Migraciones incrementales: no fallan si la columna ya existe
+            for alter in [
+                "ALTER TABLE notificaciones ADD COLUMN leida BOOLEAN DEFAULT 0;",
+                "ALTER TABLE notificaciones ADD COLUMN criticidad TEXT DEFAULT 'INFO';",
+            ]:
+                try:
+                    conn.execute(text(alter))
+                except Exception:
+                    pass
+
