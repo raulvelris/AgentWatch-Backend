@@ -17,6 +17,8 @@ class AgentDB(Base):
     `config_json` conserva todos los campos del AgentConfig como un JSON
     canónico. Esto permite recuperar la configuración real durante el deploy
     y calcular el hash SHA-256 de RF07.
+    `updated_at` (RF23 CA-03): timestamp ISO-8601 de la última modificación,
+    usado por el endpoint delta sync para filtrar cambios incrementales.
     """
 
     __tablename__ = "agents"
@@ -28,6 +30,10 @@ class AgentDB(Base):
     tipo: Mapped[str] = mapped_column(String)
     estado: Mapped[str] = mapped_column(String, default="DRAFT")
     config_json: Mapped[str] = mapped_column(Text)
+    # RF23 CA-03: timestamp de última modificación para delta sync
+    updated_at: Mapped[str] = mapped_column(
+        String, index=True, default="1970-01-01T00:00:00+00:00"
+    )
 
 class VersionDB(Base):
     """RF07: historial inmutable (triggers en database.py). `estado` es el

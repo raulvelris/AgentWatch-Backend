@@ -105,6 +105,8 @@ def init_db():
             for alter in [
                 "ALTER TABLE notificaciones ADD COLUMN leida BOOLEAN DEFAULT 0;",
                 "ALTER TABLE notificaciones ADD COLUMN criticidad TEXT DEFAULT 'INFO';",
+                # RF23 CA-03: timestamp de última modificación para delta sync
+                "ALTER TABLE agents ADD COLUMN updated_at TEXT DEFAULT '1970-01-01T00:00:00+00:00';",
             ]:
                 try:
                     conn.execute(text(alter))
