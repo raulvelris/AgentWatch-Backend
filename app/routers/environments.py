@@ -129,11 +129,12 @@ def promote(
 
     # RF06: promover exige token válido (401 sin él). El rol y el solicitante
     # salen de los claims del JWT; el destino prod exige rol ADMIN (403 si no).
-    # El campo `rol_solicitante` del body quedó deprecado: ya no se usa, el rol
-    # es el del token. Se deja en el schema por compatibilidad hasta que el
-    # front deje de mandarlo.
+    # Los campos viejos del body (`solicitante`, `rol_solicitante`) ya no
+    # existen en el schema; si un cliente viejo los manda, pydantic los
+    # descarta. El fallback "desconocido" es solo defensivo: el login siempre
+    # emite el claim sub.
     rol = claims.get("rol", "")
-    solicitante = claims.get("sub", req.solicitante)
+    solicitante = claims.get("sub", "desconocido")
     es_admin = rol.upper() == "ADMIN"
     if req.ambiente_destino == "prod" and not es_admin:
         raise HTTPException(

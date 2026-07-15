@@ -2,10 +2,10 @@ from pydantic import BaseModel
 
 
 # Módulo 2 (Despliegue / CI-CD) — RF06: ambientes y promotion controlada.
+# El contrato son SOLO los ambientes: el solicitante y el rol salen de los
+# claims del JWT (deps.require_authenticated), no del body. Los campos viejos
+# `solicitante` y `rol_solicitante` quedaron deprecados y se eliminaron del
+# schema; si un cliente viejo los manda, pydantic los descarta sin error.
 class PromoteRequest(BaseModel):
     ambiente_origen: str = "staging"
     ambiente_destino: str = "prod"
-    solicitante: str
-    # STUB de autorización: mientras el Módulo 4 (auth/RBAC, RF13) no exponga JWT,
-    # el rol se recibe en el body. La promoción a prod exige rol "ADMIN".
-    rol_solicitante: str = "DEVELOPER"
