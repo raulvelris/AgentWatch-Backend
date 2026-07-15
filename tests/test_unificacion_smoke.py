@@ -59,3 +59,18 @@ def test_endpoints_modulo5_sin_neo4j_responden_503(monkeypatch):
 def test_docs_y_openapi_cargan():
     assert client.get("/docs").status_code == 200
     assert client.get("/openapi.json").status_code == 200
+
+def test_health_endpoint_default():
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "OK"
+    assert resp.json()["version"] == "v1"
+
+def test_health_endpoint_simulate_error(monkeypatch):
+    monkeypatch.setenv("SIMULATE_ERROR", "true")
+    monkeypatch.setenv("APP_VERSION", "v2-error")
+    resp = client.get("/health")
+    assert resp.status_code == 500
+    assert resp.json()["status"] == "ERROR"
+    assert resp.json()["version"] == "v2-error"
+

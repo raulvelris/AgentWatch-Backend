@@ -1,0 +1,42 @@
+# Ignorar control de versiones e información de Git
+.git
+.gitignore
+
+# Ignorar entornos virtuales y dependencias locales
+.venv
+venv
+ENV
+env
+
+# Ignorar archivos compilados de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar bases de datos locales
+*.db
+*.db-journal
+*.sqlite3
+
+# Ignorar reportes y cachés de pruebas/cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Ignorar archivos locales de configuración de Jenkins y su pipeline
+jenkins-local/
+Jenkinsfile
+DESPLIEGUE_SEGURO_JENKINS.md
+
+# Ignorar Dockerfile y configuración del entorno de desarrollo
+Dockerfile
+.env
+.env.example
+README.md
+PIPELINE.md
+
+# Ignorar configuraciones de editores/IDE
+.vscode/
+.idea/

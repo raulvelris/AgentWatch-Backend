@@ -106,9 +106,16 @@ class TestCA02DeteccionAnomalias:
 
     def test_detect_sin_datos_no_genera_alertas(self):
         """Sin despliegues fallidos recientes, no hay anomalías."""
+        from app.core.database import get_session
+        from app.models import DeploymentRecordDB
+        with get_session() as session:
+            session.query(DeploymentRecordDB).delete()
+            session.commit()
+
         resp = client.post("/api/v1/alerts/detect", json={})
         assert resp.status_code == 200
         assert resp.json()["anomalias_detectadas"] == 0
+
 
     def test_detect_con_consumo_tokens_3x(self):
         """CA-02: consumo 3x promedio → genera alerta WARNING."""
