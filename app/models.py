@@ -146,3 +146,58 @@ class AgentEnvVarDB(Base):
     __table_args__ = (
         UniqueConstraint("agent_id", "ambiente", "nombre", name="uq_agent_env_var"),
     )
+
+
+class AlertDB(Base):
+    """RF24 CA-06: historial de alertas multicanal con estado de escalación y snooze.
+
+    `canales_usados` almacena JSON list de los canales que recibieron la alerta
+    (ej. ["push", "slack"]). `estado` refleja el ciclo de vida completo:
+    pendiente → leida | snoozed | escalada.
+    """
+
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True, default="tenant_a")
+    agent_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # CA-02: tipo de anomalía detectada
+    tipo: Mapped[str] = mapped_column(String, index=True)
+    # CA-01/CA-03: nivel de criticidad
+    criticidad: Mapped[str] = mapped_column(String, index=True)
+    mensaje: Mapped[str] = mapped_column(Text)
+    # CA-01: canales por los que se envió (JSON list)
+    canales_usados: Mapped[str] = mapped_column(Text, default="[]")  # JSON
+    # CA-05/CA-06: estado del ciclo de vida
+    estado: Mapped[str] = mapped_column(String, index=True, default="pendiente")
+    # CA-05: timestamp hasta el cual está silenciada
+    snooze_until: Mapped[str | None] = mapped_column(String, nullable=True)
+    # CA-04: escalación automática
+    escalado_a: Mapped[str | None] = mapped_column(String, nullable=True)
+    escalado_en: Mapped[str | None] = mapped_column(String, nullable=True)
+    fecha: Mapped[str] = mapped_column(String, index=True)  # ISO-8601 UTC
+
+
+class AlertChannelConfigDB(Base):
+    """RF24 CA-03: configuración de canales por empresa y nivel de criticidad.
+
+    Permite a cada tenant definir qué canales activar para cada nivel:
+    ej. CRITICAL → ["push", "slack"], INFO → ["email"].
+    `escalation_contact` es el email/ID del siguiente responsable para CA-04.
+    """
+
+    __tablename__ = "alert_channel_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String, index=True)
+    criticidad: Mapped[str] = mapped_column(String)  # "CRITICAL" | "WARNING" | "INFO"
+    # JSON list: ["push", "email", "slack", "webhook"]
+    canales: Mapped[str] = mapped_column(Text, default='["push"]')
+    webhook_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    slack_webhook_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # CA-04: a quién escalar si CRITICAL no se lee en 15 min
+    escalation_contact: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "criticidad", name="uq_tenant_criticidad"),
+    )

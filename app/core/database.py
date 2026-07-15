@@ -110,4 +110,7 @@ def init_db():
                     conn.execute(text(alter))
                 except Exception:
                     pass
+            # RF24: las tablas `alerts` y `alert_channel_configs` las crea
+            # Base.metadata.create_all() de arriba (IF NOT EXISTS implícito).
+
 

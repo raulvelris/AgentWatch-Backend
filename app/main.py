@@ -16,6 +16,9 @@ from app.routers.autenticacion import router as auth_router
 from app.routers.tenants import router as tenants_router
 from app.routers.governance import router as governance_router
 from app.routers.audit import router as audit_router
+# Módulo 6 (RF24): alertas multicanal con escalación y detección de anomalías
+from app.routers.alerts import router as alerts_router
+
 # Módulo 5 (Trazabilidad, RF17-RF20) — API core unificada (wiki 6.2/6.3):
 # los routers de rf17_rf20_gabriel se montan aquí; su main.py standalone
 # queda deprecado. Sin NEO4J_URI responden 503 ("Neo4j no configurado").
@@ -68,6 +71,9 @@ app.include_router(auth_router)
 app.include_router(tenants_router)
 app.include_router(governance_router)
 app.include_router(audit_router)
+# Módulo 6 (RF24): alertas multicanal
+app.include_router(alerts_router)
+
 # Módulo 5 (Trazabilidad / Neo4j) — sus routers traen prefijos cortos
 # (/traces, /audit, /metrics, /executions), igual que en su main standalone.
 app.include_router(traces_router, prefix="/api/v1")
