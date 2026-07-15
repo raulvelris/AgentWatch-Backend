@@ -3,11 +3,13 @@ name: CI
 # RF08 — Todo PR dispara: lint -> tests -> analisis estatico (Semgrep) -> build.
 # El merge queda bloqueado si la cobertura del Modulo 2 es < 70% o si hay
 # hallazgos Critical/High. (Configurar como required status check en la rama.)
+# push a main incluido: un push directo a main (sin PR) antes no corria CI y
+# un commit que rompia la suite entera entro sin ninguna alarma (julio 2026).
 on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [develop]
+    branches: [develop, main]
 
 jobs:
   quality-gate:

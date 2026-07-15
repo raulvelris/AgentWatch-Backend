@@ -6,6 +6,7 @@ destino prod exige ADMIN. Cuerpos válidos, así el único motivo de fallo es la
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.util_agentes import crear_agente
 
 client = TestClient(app)
 
@@ -27,8 +28,10 @@ def test_deploy_viewer_da_403():
     assert r.status_code == 403
 
 
-def test_deploy_admin_funciona():
-    r = client.post(f"/api/v1/agents/{AG}/deploy", headers=_tok("admin_a"))
+def test_deploy_admin_funciona(sin_sleep):
+    # Agente real: con ADMIN el deploy tiene que llegar al pipeline (200).
+    agente = crear_agente(client)
+    r = client.post(f"/api/v1/agents/{agente}/deploy", headers=_tok("admin_a"))
     assert r.status_code == 200
 
 

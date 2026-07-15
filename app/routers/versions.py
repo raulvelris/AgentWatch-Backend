@@ -54,17 +54,25 @@ def registrar_version(
     estado: str = "activa",
     descripcion: str = "",
     configuracion: dict | None = None,
+    hash_explicito: str | None = None,
 ) -> Version:
     """Crea y agrega una versión nueva (append-only: nunca se borra del historial).
 
     El contenido de las versiones previas es inmutable —id, número, fecha,
     autor y hash_sha256 no cambian—; lo único que se actualiza es el estado
     del ciclo de vida.
+
+    `hash_explicito` gana sobre el cálculo desde `configuracion`: lo usa el
+    rollback para que la versión nueva lleve el hash de la versión objetivo
+    (VersionDB no guarda la config por versión, así que no se puede recalcular).
     """
     if configuracion is None:
         # Compatibilidad con pruebas existentes que crean versiones
         # directamente sin pasar por un despliegue real.
         configuracion = {"agent_id": agent_id}
+    hash_valor = (
+        hash_explicito if hash_explicito is not None else _hash_config(configuracion)
+    )
 
     # Reintento acotado ante colisión de PK
     # Reintento acotado ante colisión de PK: dos deploys concurrentes del mismo
@@ -91,7 +99,7 @@ def registrar_version(
                 numero=numero,
                 fecha=ts,
                 autor=autor,
-                hash_sha256=_hash_config(configuracion),
+                hash_sha256=hash_valor,
                 estado=estado,
                 descripcion=descripcion,
             )
@@ -160,11 +168,14 @@ def rollback(agent_id: str, version_id: str):
     if objetivo is None:
         raise HTTPException(status_code=404, detail="Versión no encontrada")
     # RF07: el rollback NO modifica ni borra versiones; genera una versión nueva
-    # marcada como 'rollback' que apunta a la versión objetivo.
+    # marcada como 'rollback' que apunta a la versión objetivo y HEREDA su hash
+    # (antes caía al fallback de registrar_version y el hash era un placeholder
+    # constante que no representaba a la versión restaurada).
     nueva = registrar_version(
         agent_id,
         autor="rollback",
         estado="rollback",
         descripcion=f"rollback to {objetivo.id}",
+        hash_explicito=objetivo.hash_sha256,
     )
     return {"ok": True, "version": nueva, "rollback_a": objetivo.id}

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
+from app.routers.agents import _crear_agentes_demo_si_no_existen
 from app.routers.agents import router as agents_router
 from app.routers.templates import router as templates_router
 from app.routers.security import router as security_router
@@ -29,6 +30,11 @@ from rf17_rf20_gabriel.routes.replay import router as replay_router
 # tenga la BD lista.
 init_db()
 
+# Los agentes demo se siembran DESPUÉS de init_db(): la siembra consulta la
+# tabla `agents`, y en el import de agents.py las tablas aún no existen (con
+# una BD fresca el proceso moría con "no such table: agents").
+_crear_agentes_demo_si_no_existen()
+
 app = FastAPI(
     title="AgentWatch API",
     version="1.0.0"
@@ -45,13 +51,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# RF06: environments_router va ANTES que agents_router. Comparten el prefijo
+# /api/v1/agents, y el GET /{agent_id} de agents (b4a3188) tapaba la ruta fija
+# GET /environments (matcheaba agent_id="environments" y respondía 404).
+app.include_router(environments_router)
 app.include_router(agents_router)
 app.include_router(templates_router)
 app.include_router(security_router)
 # Módulo 2 (Despliegue / CI-CD)
 app.include_router(deployments_router)
 app.include_router(versions_router)
-app.include_router(environments_router)
 app.include_router(env_vars_router)
 app.include_router(notifications_router)
 # Módulo 4 (Despliegue / CI-CD)

@@ -67,27 +67,19 @@ def _registrar_despliegue(
         session.commit()
 
 
-async def _pipeline(agent_id: str, autor: str, fallo: str | None):
-    agente = obtener_agente_por_id(agent_id)
-
-    if agente is None:
-        raise HTTPException(
-            status_code=404,
-            detail="No se encontró la configuración del agente",
-        )
-
-    configuracion = agente.model_dump(mode="json")
-
+async def _pipeline(agent_id: str, autor: str, fallo: str | None, configuracion: dict):
+    # La config llega resuelta desde el handler: levantar un HTTPException
+    # acá adentro ya no sirve (los headers 200 del stream ya se enviaron).
     origen = version_activa(agent_id)
 
     # RF05 CA-05 + RF07: el deploy crea la versión candidata al inicio
     # (la previa pasa a 'inactiva'); así el fallo tiene algo que revertir.
     candidata = registrar_version(
-    agent_id,
-    autor=autor,
-    estado="activa",
-    configuracion=configuracion,
-)
+        agent_id,
+        autor=autor,
+        estado="activa",
+        configuracion=configuracion,
+    )
 
     for fase, mensaje in PASOS:
         if fallo == fase:
@@ -178,12 +170,21 @@ async def deploy(
             status_code=400,
             detail=f"Fase de fallo inválida; usar una de: {sorted(FASES_VALIDAS)}",
         )
+    # RF07: la config real del agente se resuelve ANTES de abrir el stream.
+    # Si el agente no existe, el cliente recibe un 404 JSON limpio; adentro
+    # del generador ya era tarde (headers 200 enviados, stream roto).
+    agente = obtener_agente_por_id(agent_id)
+    if agente is None:
+        raise HTTPException(
+            status_code=404,
+            detail="No se encontró la configuración del agente",
+        )
     # RF05 'quién': el deploy exige token ADMIN (require_admin), así que el autor
     # sale del claim `sub` del JWT. El fallback "developer" queda por si el claim
     # viniera sin sub.
     autor = claims.get("sub", "developer")
     return StreamingResponse(
-        _pipeline(agent_id, autor, fallo),
+        _pipeline(agent_id, autor, fallo, agente.model_dump(mode="json")),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

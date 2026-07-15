@@ -11,10 +11,12 @@ import re
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.util_agentes import crear_agente
 
 client = TestClient(app)
 
-AGENTE = "11111111-2222-3333-4444-555555555555"
+# Agente real creado por la API: el deploy exige que exista en AgentDB.
+AGENTE = crear_agente(client)
 
 
 def _h(usuario: str = "admin_a") -> dict:
@@ -22,7 +24,7 @@ def _h(usuario: str = "admin_a") -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_deploy_emite_sse_y_termina_en_done():
+def test_deploy_emite_sse_y_termina_en_done(sin_sleep):
     # RF05: el deploy transmite SSE y termina con un frame 'done' exitoso.
     r = client.post(f"/api/v1/agents/{AGENTE}/deploy", headers=_h())
     assert r.status_code == 200
@@ -34,7 +36,7 @@ def test_deploy_emite_sse_y_termina_en_done():
     assert '"salud": "healthy"' in cuerpo
 
 
-def test_deploy_crea_version_inmutable_con_sha256():
+def test_deploy_crea_version_inmutable_con_sha256(sin_sleep):
     # RF07: un deploy exitoso registra una versión con hash SHA-256 (64 hex).
     client.post(f"/api/v1/agents/{AGENTE}/deploy", headers=_h())
     r = client.get(f"/api/v1/agents/{AGENTE}/versions")
@@ -46,9 +48,9 @@ def test_deploy_crea_version_inmutable_con_sha256():
     assert re.fullmatch(r"[0-9a-f]{64}", activa[0]["hash_sha256"])
 
 
-def test_rollback_genera_version_nueva_sin_borrar():
+def test_rollback_genera_version_nueva_sin_borrar(sin_sleep):
     # RF07: el rollback NO borra ni modifica; agrega una versión 'rollback'.
-    ag = "agente-rollback-test"
+    ag = crear_agente(client)
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())
     antes = client.get(f"/api/v1/agents/{ag}/versions").json()["versions"]
@@ -61,7 +63,7 @@ def test_rollback_genera_version_nueva_sin_borrar():
     assert despues[-1]["estado"] == "rollback"
 
 
-def test_rollback_version_inexistente_da_404():
+def test_rollback_version_inexistente_da_404(sin_sleep):
     client.post(f"/api/v1/agents/{AGENTE}/deploy", headers=_h())
     r = client.post(f"/api/v1/agents/{AGENTE}/rollback/no-existe", headers=_h())
     assert r.status_code == 404
@@ -147,10 +149,10 @@ def test_list_promotions_solo_del_agente():
     assert promos[0]["ambiente_destino"] == "staging"
 
 
-def test_rollback_encadenado_sigue_append_y_una_vigente():
+def test_rollback_encadenado_sigue_append_y_una_vigente(sin_sleep):
     # RF07: el rollback de un rollback sigue siendo append-only y deja exactamente
     # una versión vigente (activa|rollback).
-    ag = "agente-chained-rollback"
+    ag = crear_agente(client)
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())  # v1
     client.post(f"/api/v1/agents/{ag}/deploy", headers=_h())  # v2
     v1 = client.get(f"/api/v1/agents/{ag}/versions").json()["versions"][0]["id"]

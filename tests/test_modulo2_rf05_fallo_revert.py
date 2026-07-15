@@ -4,6 +4,7 @@ y registro auditable de TODO despliegue (quién/cuándo/origen/resultado)."""
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.util_agentes import crear_agente
 
 client = TestClient(app)
 
@@ -14,9 +15,9 @@ def _h(usuario: str = "admin_a") -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_deploy_exitoso_persiste_deployment_record():
+def test_deploy_exitoso_persiste_deployment_record(sin_sleep):
     # RF05: hasta un deploy exitoso deja registro (autor, fecha, resultado).
-    agente = "agente-record-exitoso"
+    agente = crear_agente(client)
     respuesta = client.post(f"/api/v1/agents/{agente}/deploy", headers=_h())
     assert respuesta.status_code == 200
 
@@ -30,8 +31,8 @@ def test_deploy_exitoso_persiste_deployment_record():
     assert registro["fecha"]
 
 
-def test_deploy_con_fallo_emite_error_revert_y_failed():
-    agente = "agente-fallo-revert"
+def test_deploy_con_fallo_emite_error_revert_y_failed(sin_sleep):
+    agente = crear_agente(client)
     # Primer deploy exitoso deja v1 activa.
     client.post(f"/api/v1/agents/{agente}/deploy", headers=_h())
 
@@ -79,9 +80,9 @@ def test_deploy_fallo_en_fase_invalida_da_400():
     assert respuesta.status_code == 400
 
 
-def test_deploy_con_jwt_registra_al_autor_real():
+def test_deploy_con_jwt_registra_al_autor_real(sin_sleep):
     # RF05 'quién': con Authorization: Bearer, el autor sale del claim sub.
-    agente = "agente-autor-jwt"
+    agente = crear_agente(client)
     token = client.get("/api/v1/auth/login", params={"usuario": "admin_a"}).json()["token"]
     respuesta = client.post(
         f"/api/v1/agents/{agente}/deploy",
