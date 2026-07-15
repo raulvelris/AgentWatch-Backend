@@ -107,6 +107,39 @@ def test_promote_ambiente_invalido_da_400():
     assert r.status_code == 400
 
 
+def test_promote_con_body_minimo_usa_el_sub_del_token():
+    # RF06: el contrato del promote son SOLO los ambientes; el solicitante y el
+    # rol salen de los claims del JWT (sub y rol), no del body.
+    r = client.post(
+        f"/api/v1/agents/{AGENTE}/promote",
+        headers=_h("admin_a"),
+        json={"ambiente_origen": "dev", "ambiente_destino": "staging"},
+    )
+    assert r.status_code == 200
+    promo = r.json()["promotion"]
+    assert promo["solicitante"] == "admin_a"  # claim sub del token, no el body
+    assert promo["estado"] == "aprobada"
+
+
+def test_promote_body_legacy_sigue_aceptado_pero_ignorado():
+    # Compatibilidad: clientes viejos que manden solicitante/rol_solicitante no
+    # rompen (pydantic descarta los extras), pero el backend NO los usa.
+    r = client.post(
+        f"/api/v1/agents/{AGENTE}/promote",
+        headers=_h("viewer_a"),
+        json={
+            "ambiente_origen": "dev",
+            "ambiente_destino": "staging",
+            "solicitante": "impostor@x.dev",
+            "rol_solicitante": "ADMIN",  # mentira del body: el token es VIEWER
+        },
+    )
+    assert r.status_code == 200
+    promo = r.json()["promotion"]
+    assert promo["solicitante"] == "viewer_a"  # gana el sub del token
+    assert promo["estado"] == "pendiente"  # gana el rol del token (VIEWER)
+
+
 def test_promote_no_prod_sin_admin_queda_pendiente():
     # RF06: promover a un ambiente != prod no exige ADMIN; con token VIEWER
     # queda 'pendiente'.

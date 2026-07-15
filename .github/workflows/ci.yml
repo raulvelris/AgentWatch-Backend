@@ -37,8 +37,8 @@ jobs:
 
       - name: Tests + coverage gate (>= 70% en el Modulo 2)
         # Scope: todo el codigo del Modulo 2 (routers + schemas + persistencia
-        # + config + dependencias de auth/reloj/outbox). Medido al ampliarlo:
-        # 99% — el gate 70 acordado por el equipo queda con margen.
+        # + config + dependencias de auth/reloj/outbox). Medido en julio 2026:
+        # 97.5% — el gate 70 acordado por el equipo queda con margen.
         run: |
           pytest tests/ \
             --cov=app.routers.deployments \
