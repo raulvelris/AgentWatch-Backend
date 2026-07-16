@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from uuid import UUID
 
 
-class AgentConfig(BaseModel):
+class AgentCreate(BaseModel):
     id: UUID
     nombre: str
     tipo: str
@@ -12,5 +12,8 @@ class AgentConfig(BaseModel):
     regla: str
     supervision: str
     estado: str = "DRAFT"
+
+
+class AgentConfig(AgentCreate):
     tenant_id: str
     owner: str
