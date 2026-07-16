@@ -1,14 +1,18 @@
 import json
 import uuid
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+import redis
 
 from app.core.database import get_session
 from app.models import AgentDB
 from app.schemas.agent import AgentConfig
+from app.core.redis_client import redis_db
 
+logger = logging.getLogger(__name__)
 
 class StateUpdate(BaseModel):
     estado: str
@@ -108,6 +112,7 @@ def _crear_agentes_demo_si_no_existen() -> None:
 
 @router.post("/")
 def create_agent(agent: AgentConfig):
+    """Crea un agente y aplica la invalidación del patrón Cache-Aside."""
     with get_session() as session:
         if session.get(AgentDB, str(agent.id)) is not None:
             raise HTTPException(
@@ -118,17 +123,57 @@ def create_agent(agent: AgentConfig):
         registro = _guardar_agent_config(agent)
         session.add(registro)
         session.commit()
+        
+        agent_creado = _a_schema(registro)
+
+        # PASO 4 (Cache-Aside): Invalidar caché al modificar datos
+        if redis_db is not None:
+            try:
+                redis_db.delete("agents_list_all")
+            except Exception:
+                pass
 
         return {
             "message": "Agente creado correctamente",
-            "agent": _a_schema(registro),
+            "agent": agent_creado,
         }
 
 
 @router.get("/")
 def list_agents():
+    """
+    Implementación del patrón arquitectónico Cache-Aside.
+    Optimiza el CA-03 de la HU-21 (Carga en <2 segundos).
+    """
+    cache_key = "agents_list_all"
+    
+    # ─── PATRÓN CACHE-ASIDE: FLUJO DE LECTURA ───
+    
+    # PASO 1: Intentar leer desde la caché (Memoria rápida)
+    if redis_db is not None:
+        try:
+            cached_data = redis_db.get(cache_key)
+            if cached_data:
+                logger.info("Cache-Aside [HIT]: Lista de agentes obtenida de Redis")
+                return {"agents": json.loads(cached_data)}
+        except Exception:
+            # Tolerancia a fallos: Fallback silencioso si Redis está caído
+            pass
+
+    # PASO 2: Cache Miss -> ir a la fuente de la verdad (PostgreSQL)
+    logger.info("Cache-Aside [MISS]: Lista de agentes obtenida de PostgreSQL")
+    agentes = listar_agentes()
+
+    # PASO 3: Guardar en caché con tiempo de vida (TTL = 60 seg) para futuras peticiones
+    if redis_db is not None:
+        try:
+            agentes_dict = [a.model_dump(mode="json") for a in agentes]
+            redis_db.setex(cache_key, 60, json.dumps(agentes_dict))
+        except Exception:
+            pass
+
     return {
-        "agents": listar_agentes(),
+        "agents": agentes,
     }
 
 
@@ -174,6 +219,24 @@ def delta_sync(
 
 @router.get("/{agent_id}")
 def get_agent(agent_id: str):
+    """
+    Implementación del patrón Cache-Aside para lectura individual.
+    Optimiza el acceso al Detalle del Agente (HU-21).
+    """
+    cache_key = f"agent_{agent_id}"
+
+    # PATRÓN CACHE-ASIDE: PASO 1 (Leer Caché)
+    if redis_db is not None:
+        try:
+            cached_data = redis_db.get(cache_key)
+            if cached_data:
+                logger.info(f"Cache-Aside [HIT]: Agente {agent_id}")
+                return {"agent": json.loads(cached_data)}
+        except Exception:
+            pass
+
+    # PATRÓN CACHE-ASIDE: PASO 2 (Cache Miss -> Origen)
+    logger.info(f"Cache-Aside [MISS]: Agente {agent_id}")
     agent = obtener_agente_por_id(agent_id)
 
     if agent is None:
@@ -181,6 +244,13 @@ def get_agent(agent_id: str):
             status_code=404,
             detail="Agente no encontrado",
         )
+
+    # PASO 3: Guardar en Caché
+    if redis_db is not None:
+        try:
+            redis_db.setex(cache_key, 60, json.dumps(agent.model_dump(mode="json")))
+        except Exception:
+            pass
 
     return {
         "agent": agent,
@@ -211,8 +281,20 @@ def update_agent_state(agent_id: str, update_data: StateUpdate):
         )
 
         session.commit()
+        
+        agent_actualizado = _a_schema(agent)
+
+        # ─── PATRÓN CACHE-ASIDE: FLUJO DE ESCRITURA ───
+        # PASO 4: Invalidar caché tras la escritura en BD para mantener la coherencia
+        if redis_db is not None:
+            try:
+                redis_db.delete("agents_list_all")
+                redis_db.delete(f"agent_{agent_id}")
+                logger.info(f"Cache-Aside [INVALIDATE]: Caché limpiada tras actualización de estado")
+            except Exception:
+                pass
 
         return {
             "message": "Estado actualizado",
-            "agent": _a_schema(agent),
+            "agent": agent_actualizado,
         }
