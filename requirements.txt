@@ -31,3 +31,5 @@ httpx==0.28.1
 starlette==1.2.1
 pydantic-core==2.46.4
 anyio==4.13.0
+# Caché (Patrón Cache-Aside)
+redis==5.0.3
